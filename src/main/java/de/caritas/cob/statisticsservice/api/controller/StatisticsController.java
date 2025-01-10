@@ -6,7 +6,8 @@ import de.caritas.cob.statisticsservice.api.model.RegistrationStatisticsListResp
 import de.caritas.cob.statisticsservice.api.statistics.service.RegistrationStatisticsService;
 import de.caritas.cob.statisticsservice.api.statistics.service.StatisticsService;
 import de.caritas.cob.statisticsservice.generated.api.controller.StatisticsApi;
-import io.swagger.annotations.Api;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import java.time.LocalDate;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /** Controller for statistics API requests */
 @RestController
-@Api(tags = "statistics-controller")
+@Tag(name = "statistics-controller")
 @RequiredArgsConstructor
 public class StatisticsController implements StatisticsApi {
 

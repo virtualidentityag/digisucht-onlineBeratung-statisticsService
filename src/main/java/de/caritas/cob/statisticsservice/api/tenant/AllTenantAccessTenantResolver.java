@@ -5,7 +5,7 @@ import static de.caritas.cob.statisticsservice.api.authorization.UserRole.TENANT
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.Set;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import org.keycloak.adapters.springsecurity.token.KeycloakAuthenticationToken;
 import org.keycloak.representations.AccessToken;
 import org.springframework.stereotype.Component;
