@@ -7,7 +7,6 @@ import static de.caritas.cob.statisticsservice.api.authorization.Authority.TENAN
 import de.caritas.cob.statisticsservice.filter.HttpTenantFilter;
 import de.caritas.cob.statisticsservice.filter.StatelessCsrfFilter;
 import jakarta.annotation.Nullable;
-import org.keycloak.adapters.springsecurity.KeycloakConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -26,7 +25,6 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * Provides the Keycloak/Spring Security configuration.
  */
 @Configuration
-@KeycloakConfiguration
 public class SecurityConfig implements WebMvcConfigurer {
 
   public static final String[] WHITE_LIST =
