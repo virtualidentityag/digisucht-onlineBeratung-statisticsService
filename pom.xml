@@ -355,8 +355,7 @@
     <dependency>
       <groupId>org.mongodb</groupId>
       <artifactId>bson</artifactId>
-      <version>4.8.2</version>
-      <scope>test</scope>
+      <version>4.3.1</version>
     </dependency>
     <dependency>
       <groupId>org.keycloak</groupId>
