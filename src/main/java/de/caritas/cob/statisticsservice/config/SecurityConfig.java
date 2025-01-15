@@ -4,14 +4,23 @@ import static de.caritas.cob.statisticsservice.api.authorization.Authority.CONSU
 import static de.caritas.cob.statisticsservice.api.authorization.Authority.SINGLE_TENANT_ADMIN;
 import static de.caritas.cob.statisticsservice.api.authorization.Authority.TENANT_ADMIN;
 
+import de.caritas.cob.statisticsservice.api.authorization.RoleAuthorizationAuthorityMapper;
 import de.caritas.cob.statisticsservice.filter.HttpTenantFilter;
 import de.caritas.cob.statisticsservice.filter.StatelessCsrfFilter;
 import jakarta.annotation.Nullable;
+import org.keycloak.adapters.springsecurity.KeycloakConfiguration;
+import org.keycloak.adapters.springsecurity.authentication.KeycloakAuthenticationProvider;
+import org.keycloak.adapters.springsecurity.filter.KeycloakAuthenticatedActionsFilter;
+import org.keycloak.adapters.springsecurity.filter.KeycloakAuthenticationProcessingFilter;
+import org.keycloak.adapters.springsecurity.filter.KeycloakPreAuthActionsFilter;
+import org.keycloak.adapters.springsecurity.filter.KeycloakSecurityContextRequestFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
@@ -25,6 +34,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * Provides the Keycloak/Spring Security configuration.
  */
 @Configuration
+@KeycloakConfiguration
 public class SecurityConfig implements WebMvcConfigurer {
 
   public static final String[] WHITE_LIST =
@@ -52,6 +62,13 @@ public class SecurityConfig implements WebMvcConfigurer {
 
   @Value("${multitenancy.enabled}")
   private boolean multitenancyEnabled;
+
+  @Autowired
+  public void configureGlobal(AuthenticationManagerBuilder auth, RoleAuthorizationAuthorityMapper authorityMapper) {
+    KeycloakAuthenticationProvider keycloakAuthenticationProvider = keycloakAuthenticationProvider();
+    keycloakAuthenticationProvider.setGrantedAuthoritiesMapper(authorityMapper);
+    auth.authenticationProvider(keycloakAuthenticationProvider);
+  }
 
   /**
    * Configure spring security filter chain: disable default Spring Boot CSRF token behavior and add
@@ -92,5 +109,10 @@ public class SecurityConfig implements WebMvcConfigurer {
   @Bean
   protected SessionAuthenticationStrategy sessionAuthenticationStrategy() {
     return new NullAuthenticatedSessionStrategy();
+  }
+
+  @Bean
+  public KeycloakAuthenticationProvider keycloakAuthenticationProvider() {
+    return new KeycloakAuthenticationProvider();
   }
 }
