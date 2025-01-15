@@ -64,8 +64,7 @@ public class SecurityConfig implements WebMvcConfigurer {
   private boolean multitenancyEnabled;
 
   @Autowired
-  public void configureGlobal(AuthenticationManagerBuilder auth, RoleAuthorizationAuthorityMapper authorityMapper) {
-    KeycloakAuthenticationProvider keycloakAuthenticationProvider = keycloakAuthenticationProvider();
+  public void configureGlobal(AuthenticationManagerBuilder auth, RoleAuthorizationAuthorityMapper authorityMapper, KeycloakAuthenticationProvider keycloakAuthenticationProvider) {
     keycloakAuthenticationProvider.setGrantedAuthoritiesMapper(authorityMapper);
     auth.authenticationProvider(keycloakAuthenticationProvider);
   }
