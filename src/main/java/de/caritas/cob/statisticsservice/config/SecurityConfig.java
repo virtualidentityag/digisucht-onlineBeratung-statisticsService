@@ -4,26 +4,27 @@ import static de.caritas.cob.statisticsservice.api.authorization.Authority.CONSU
 import static de.caritas.cob.statisticsservice.api.authorization.Authority.SINGLE_TENANT_ADMIN;
 import static de.caritas.cob.statisticsservice.api.authorization.Authority.TENANT_ADMIN;
 
-import de.caritas.cob.statisticsservice.api.authorization.RoleAuthorizationAuthorityMapper;
 import de.caritas.cob.statisticsservice.filter.HttpTenantFilter;
 import de.caritas.cob.statisticsservice.filter.StatelessCsrfFilter;
 import jakarta.annotation.Nullable;
+import lombok.RequiredArgsConstructor;
 import org.keycloak.adapters.springsecurity.KeycloakConfiguration;
 import org.keycloak.adapters.springsecurity.authentication.KeycloakAuthenticationProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.core.env.Environment;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.session.NullAuthenticatedSessionStrategy;
 import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.web.servlet.config.annotation.PathMatchConfigurer;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
@@ -31,6 +32,9 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  */
 @Configuration
 @KeycloakConfiguration
+@EnableMethodSecurity
+@EnableWebSecurity
+@RequiredArgsConstructor
 public class SecurityConfig implements WebMvcConfigurer {
 
   public static final String[] WHITE_LIST =
@@ -38,11 +42,9 @@ public class SecurityConfig implements WebMvcConfigurer {
           "/swagger-resources/**", "/configuration/security", "/swagger-ui", "/swagger-ui/**", "/webjars/**", "/healthcheck/health", "/healthcheck/health/**"};
 
   @Autowired
-  @Lazy
   AuthorisationService authorisationService;
 
   @Autowired
-  @Lazy
   JwtAuthConverterProperties jwtAuthConverterProperties;
 
   @Value("${csrf.cookie.property}")
@@ -61,11 +63,6 @@ public class SecurityConfig implements WebMvcConfigurer {
   @Value("${multitenancy.enabled}")
   private boolean multitenancyEnabled;
 
-  @Autowired
-  public void configureGlobal(AuthenticationManagerBuilder auth, RoleAuthorizationAuthorityMapper authorityMapper, KeycloakAuthenticationProvider keycloakAuthenticationProvider) {
-    keycloakAuthenticationProvider.setGrantedAuthoritiesMapper(authorityMapper);
-    auth.authenticationProvider(keycloakAuthenticationProvider);
-  }
 
   /**
    * Configure spring security filter chain: disable default Spring Boot CSRF token behavior and add
@@ -84,8 +81,8 @@ public class SecurityConfig implements WebMvcConfigurer {
     }
 
     httpSecurity
-        .sessionManagement(management -> management.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-            .sessionAuthenticationStrategy(sessionAuthenticationStrategy())).authorizeHttpRequests(requests -> requests
+        .sessionManagement(management -> management.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .authorizeHttpRequests(requests -> requests
         .requestMatchers(WHITE_LIST).permitAll()
         .requestMatchers("/statistics/consultant").hasAuthority(CONSULTANT.getAuthority())
         .requestMatchers("/statistics/registration").hasAnyAuthority(SINGLE_TENANT_ADMIN.getAuthority(),
@@ -98,18 +95,5 @@ public class SecurityConfig implements WebMvcConfigurer {
   @Bean
   JwtAuthConverter jwtAuthConverter() {
     return new JwtAuthConverter(jwtAuthConverterProperties, authorisationService);
-  }
-
-  /**
-   * Change springs authentication strategy to be stateless (no session is being created).
-   */
-  @Bean
-  protected SessionAuthenticationStrategy sessionAuthenticationStrategy() {
-    return new NullAuthenticatedSessionStrategy();
-  }
-
-  @Bean
-  public KeycloakAuthenticationProvider keycloakAuthenticationProvider() {
-    return new KeycloakAuthenticationProvider();
   }
 }
