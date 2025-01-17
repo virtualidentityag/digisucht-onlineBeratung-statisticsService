@@ -19,6 +19,8 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.session.NullAuthenticatedSessionStrategy;
@@ -63,6 +65,9 @@ public class SecurityConfig implements WebMvcConfigurer {
   @Value("${multitenancy.enabled}")
   private boolean multitenancyEnabled;
 
+  @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}")
+  private String jwkSetUri;
+
 
   /**
    * Configure spring security filter chain: disable default Spring Boot CSRF token behavior and add
@@ -87,9 +92,14 @@ public class SecurityConfig implements WebMvcConfigurer {
         .requestMatchers("/statistics/consultant").hasAuthority(CONSULTANT.getAuthority())
         .requestMatchers("/statistics/registration").hasAnyAuthority(SINGLE_TENANT_ADMIN.getAuthority(),
         TENANT_ADMIN.getAuthority())
-        .anyRequest().denyAll());
-    httpSecurity.oauth2ResourceServer(server -> server.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthConverter())));
+        .anyRequest().denyAll())
+        .oauth2ResourceServer(server -> server.jwt(jwt -> jwt.decoder(jwtDecoder())));
     return httpSecurity.build();
+  }
+
+  @Bean
+  JwtDecoder jwtDecoder() {
+    return NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
   }
 
   @Bean
