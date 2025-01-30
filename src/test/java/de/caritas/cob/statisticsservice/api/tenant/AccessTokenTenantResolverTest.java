@@ -1,4 +1,5 @@
 package de.caritas.cob.statisticsservice.api.tenant;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
