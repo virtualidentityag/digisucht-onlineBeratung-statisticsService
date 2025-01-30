@@ -1,17 +1,20 @@
 package de.caritas.cob.statisticsservice.config;
 
-import static java.util.Objects.isNull;
 
+import com.google.common.collect.Lists;
 import de.caritas.cob.statisticsservice.api.exception.KeycloakException;
 import de.caritas.cob.statisticsservice.api.helper.AuthenticatedUser;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import jakarta.servlet.http.HttpServletRequest;
-import org.keycloak.KeycloakSecurityContext;
-import org.keycloak.adapters.springsecurity.token.KeycloakAuthenticationToken;
+import java.util.stream.Collectors;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -26,56 +29,37 @@ public class AuthenticatedUserConfig {
   private static final String CLAIM_NAME_USERNAME = "username";
 
   /**
-   * Returns the @KeycloakAuthenticationToken which represents the token for a Keycloak
-   * authentication.
-   *
-   * @return KeycloakAuthenticationToken
-   */
-  @Bean
-  @Scope(scopeName = WebApplicationContext.SCOPE_REQUEST, proxyMode = ScopedProxyMode.TARGET_CLASS)
-  public KeycloakAuthenticationToken getAccessToken() {
-    return (KeycloakAuthenticationToken) getRequest().getUserPrincipal();
-  }
-
-  /**
-   * Returns the @KeycloakSecurityContext.
-   *
-   * @return KeycloakSecurityContext
-   */
-  @Bean
-  @Scope(scopeName = WebApplicationContext.SCOPE_REQUEST, proxyMode = ScopedProxyMode.TARGET_CLASS)
-  public KeycloakSecurityContext getKeycloakSecurityContext() {
-    return ((KeycloakAuthenticationToken) getRequest().getUserPrincipal())
-        .getAccount().getKeycloakSecurityContext();
-  }
-
-  /**
    * Returns the currently authenticated user.
    *
    * @return {@link AuthenticatedUser}
    */
   @Bean
   @Scope(scopeName = WebApplicationContext.SCOPE_REQUEST, proxyMode = ScopedProxyMode.TARGET_CLASS)
-  public AuthenticatedUser getAuthenticatedUser() {
+  AuthenticatedUser getAuthenticatedUser() {
 
-    KeycloakSecurityContext keycloakSecContext =
-        ((KeycloakAuthenticationToken) getRequest().getUserPrincipal()).getAccount()
-            .getKeycloakSecurityContext();
-    Map<String, Object> claimMap = keycloakSecContext.getToken().getOtherClaims();
+    JwtAuthenticationToken authenticationToken = (JwtAuthenticationToken) getRequest().getUserPrincipal();
 
+    Map<String, Object> claimMap = authenticationToken.getToken().getClaims();
     AuthenticatedUser authenticatedUser = new AuthenticatedUser();
-    authenticatedUser.setAccessToken(getUserAccessToken(keycloakSecContext));
+    authenticatedUser.setAccessToken(authenticationToken.getToken().getTokenValue());
     authenticatedUser.setUserId(getUserAttribute(claimMap, CLAIM_NAME_USER_ID));
     authenticatedUser.setUsername(getUserAttribute(claimMap, CLAIM_NAME_USERNAME));
-
+    authenticatedUser.setRoles(extractRealmRoles(authenticationToken.getToken()).stream().collect(
+        Collectors.toSet()));
     return authenticatedUser;
+
   }
 
-  private String getUserAccessToken(KeycloakSecurityContext keycloakSecContext) {
-    if (isNull(keycloakSecContext.getTokenString())) {
-      throw new KeycloakException("No valid Keycloak access token string found.");
+
+  public Collection<String> extractRealmRoles(Jwt jwt) {
+    Map<String, Object> realmAccess = (Map<String, Object>) jwt.getClaims().get("realm_access");
+    if (realmAccess != null) {
+      var roles = (List<String>) realmAccess.get("roles");
+      if (roles != null) {
+        return roles;
+      }
     }
-    return keycloakSecContext.getTokenString();
+    return Lists.newArrayList();
   }
 
   private String getUserAttribute(Map<String, Object> claimMap, String claimValue) {
