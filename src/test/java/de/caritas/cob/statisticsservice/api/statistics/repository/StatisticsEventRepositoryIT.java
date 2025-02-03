@@ -68,7 +68,7 @@ class StatisticsEventRepositoryIT {
     MongodStarter starter = MongodStarter.getDefaultInstance();
     mongoPort = 27017;
     MongodConfig mongodConfig = MongodConfig.builder()
-        .version(Version.Main.PRODUCTION)
+        .version(Version.Main.V4_0)
         .net(new Net(mongoPort, Network.localhostIsIPv6()))
         .build();
     mongodExecutable = starter.prepare(mongodConfig);
