@@ -16,7 +16,7 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.2.12</version>
+    <version>3.3.8</version>
     <relativePath/> <!-- lookup parent from repository -->
   </parent>
 
@@ -39,7 +39,7 @@
       <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-dependencies</artifactId>
-        <version>3.2.12</version>
+        <version>3.3.8</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -59,7 +59,6 @@
     <dependency>
       <groupId>org.springframework.security</groupId>
       <artifactId>spring-security-web</artifactId>
-      <version>6.3.4</version>
     </dependency>
     <dependency>
       <groupId>org.springframework.security</groupId>
@@ -213,7 +212,6 @@
     <dependency>
       <groupId>org.springframework</groupId>
       <artifactId>spring-aop</artifactId>
-      <version>6.1.16</version>
     </dependency>
     <dependency>
       <groupId>org.springframework.data</groupId>
@@ -235,7 +233,6 @@
     <dependency>
       <groupId>org.springframework</groupId>
       <artifactId>spring-jcl</artifactId>
-      <version>6.1.16</version>
     </dependency>
     <dependency>
       <groupId>org.springframework.security</groupId>
@@ -245,7 +242,6 @@
     <dependency>
       <groupId>org.springframework</groupId>
       <artifactId>spring-web</artifactId>
-      <version>6.1.16</version>
     </dependency>
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
@@ -254,7 +250,6 @@
     <dependency>
       <groupId>org.springframework</groupId>
       <artifactId>spring-test</artifactId>
-      <version>6.1.16</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -265,7 +260,6 @@
     <dependency>
       <groupId>org.springframework</groupId>
       <artifactId>spring-beans</artifactId>
-      <version>6.1.16</version>
     </dependency>
     <dependency>
       <groupId>com.fasterxml.jackson.datatype</groupId>
@@ -274,7 +268,6 @@
     <dependency>
       <groupId>org.springframework</groupId>
       <artifactId>spring-core</artifactId>
-      <version>6.1.16</version>
     </dependency>
     <dependency>
       <groupId>org.apache.tomcat.embed</groupId>
@@ -288,7 +281,6 @@
     <dependency>
       <groupId>org.springframework</groupId>
       <artifactId>spring-tx</artifactId>
-      <version>6.1.16</version>
     </dependency>
     <dependency>
       <groupId>org.aspectj</groupId>
@@ -363,7 +355,6 @@
     <dependency>
       <groupId>org.springframework</groupId>
       <artifactId>spring-webmvc</artifactId>
-      <version>6.1.16</version>
     </dependency>
     <dependency>
       <groupId>org.springframework.amqp</groupId>
@@ -382,7 +373,6 @@
     <dependency>
       <groupId>org.springframework</groupId>
       <artifactId>spring-context</artifactId>
-      <version>6.1.16</version>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -416,7 +406,7 @@
         <configuration>
           <exportDatatables>true</exportDatatables>
           <activeRecipes>
-            <recipe>org.openrewrite.java.spring.boot3.UpgradeSpringBoot_3_2</recipe>
+            <recipe>org.openrewrite.java.spring.boot3.UpgradeSpringBoot_3_3</recipe>
           </activeRecipes>
         </configuration>
         <dependencies>
