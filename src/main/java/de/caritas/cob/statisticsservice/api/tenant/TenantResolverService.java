@@ -5,13 +5,15 @@ import static com.google.common.collect.Lists.newArrayList;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 @Slf4j
@@ -48,7 +50,7 @@ public class TenantResolverService {
   }
 
   public Long resolve(HttpServletRequest request) {
-    if (userIsAuthenticated(request)) {
+    if (userIsAuthenticated()) {
       return resolveForAuthenticatedUser(request);
     } else {
       return resolveForNonAuthenticatedUser(request);
@@ -117,7 +119,12 @@ public class TenantResolverService {
     return Optional.empty();
   }
 
-  private boolean userIsAuthenticated(HttpServletRequest request) {
-    return request.getUserPrincipal() != null;
+  private boolean userIsAuthenticated() {
+    /* after upgrade to oauth2ResourceServer security configuration (spring 6.x upgrade)
+       for authenticated users request.getUserPrincipal() might be still null at the time of HttpTenantFilter is executed
+       but BearerTokenAuthenticationFilter has already set the principal in the SecurityContext */
+    SecurityContext context = SecurityContextHolder.getContext();
+    return context.getAuthentication() != null
+        && context.getAuthentication().isAuthenticated();
   }
 }

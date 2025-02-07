@@ -9,7 +9,7 @@ import de.caritas.cob.statisticsservice.api.exception.httpresponses.StatisticsDi
 import de.caritas.cob.statisticsservice.api.service.LogService;
 import java.net.ConnectException;
 import java.net.UnknownHostException;
-import javax.validation.ConstraintViolationException;
+import jakarta.validation.ConstraintViolationException;
 import lombok.NoArgsConstructor;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -17,6 +17,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.lang.NonNull;
@@ -90,9 +91,9 @@ public class ApiResponseEntityExceptionHandler extends ResponseEntityExceptionHa
   protected ResponseEntity<Object> handleHttpMessageNotReadable(
       final @NonNull HttpMessageNotReadableException ex,
       final @NonNull HttpHeaders headers,
-      final @NonNull HttpStatus status,
+      final HttpStatusCode status,
       final @NonNull WebRequest request) {
-    LogService.logWarning(status, ex);
+    LogService.logWarning(HttpStatus.valueOf(status.value()), ex);
 
     return new ResponseEntity<>(null, status);
   }
@@ -111,9 +112,9 @@ public class ApiResponseEntityExceptionHandler extends ResponseEntityExceptionHa
   protected ResponseEntity<Object> handleMethodArgumentNotValid(
       final @NonNull MethodArgumentNotValidException ex,
       final @NonNull HttpHeaders headers,
-      final @NonNull HttpStatus status,
+      final HttpStatusCode status,
       final @NonNull WebRequest request) {
-    LogService.logWarning(status, ex);
+    LogService.logWarning(HttpStatus.valueOf(status.value()), ex);
 
     return new ResponseEntity<>(null, status);
   }
