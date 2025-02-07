@@ -5,16 +5,17 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
 
 import java.util.Optional;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.keycloak.adapters.springsecurity.token.KeycloakAuthenticationToken;
-import org.mockito.Answers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -34,11 +35,14 @@ class TenantResolverServiceTest {
   @Mock
   HttpServletRequest nonAuthenticatedRequest;
 
-  @Mock(answer = Answers.RETURNS_DEEP_STUBS)
-  KeycloakAuthenticationToken token;
-
   @InjectMocks
   TenantResolverService tenantResolverService;
+
+  @Mock
+  private SecurityContext mockSecurityContext;
+
+  @Mock
+  private Authentication mockAuthentication;
 
   @Mock
   private CustomHeaderTenantResolver customHeaderTenantResolver;
@@ -49,6 +53,7 @@ class TenantResolverServiceTest {
   @AfterEach
   public void tearDown() {
     ReflectionTestUtils.setField(tenantResolverService, "multitenancyWithSingleDomain", false);
+    SecurityContextHolder.clearContext();
   }
 
 
@@ -69,7 +74,9 @@ class TenantResolverServiceTest {
   }
 
   private void givenUserIsAuthenticated() {
-    when(authenticatedRequest.getUserPrincipal()).thenReturn(token);
+    SecurityContextHolder.setContext(mockSecurityContext);
+    when(mockSecurityContext.getAuthentication()).thenReturn(mockAuthentication);
+    when(mockAuthentication.isAuthenticated()).thenReturn(true);
   }
 
   @Test
@@ -83,7 +90,8 @@ class TenantResolverServiceTest {
     when(subdomainTenantResolver.resolve(authenticatedRequest)).thenReturn(Optional.of(2L));
 
     // when, then
-    assertThrows(AccessDeniedException.class, () -> tenantResolverService.resolve(authenticatedRequest));
+    assertThrows(AccessDeniedException.class,
+        () -> tenantResolverService.resolve(authenticatedRequest));
   }
 
   @Test
@@ -93,27 +101,28 @@ class TenantResolverServiceTest {
     when(accessTokenTenantResolver.canResolve(authenticatedRequest)).thenReturn(false);
 
     // when, then
-    assertThrows(AccessDeniedException.class, () -> tenantResolverService.resolve(authenticatedRequest));
+    assertThrows(AccessDeniedException.class,
+        () -> tenantResolverService.resolve(authenticatedRequest));
   }
 
   @Test
-  void resolve_Should_NotResolveTenantAndThrowAccessDeniedException_When_NoResolversCouldResolveAndNormalMultitenancyModeForNonAuthUsers() {
-    assertThrows(AccessDeniedException.class, () -> tenantResolverService.resolve(nonAuthenticatedRequest));
-  }
-
-  @Test
-  void resolve_Should_ResolveFromSubdomainForNonAuthUsersAndNormalMultitenancyMode() {
-    when(subdomainTenantResolver.canResolve(nonAuthenticatedRequest)).thenReturn(true);
-    when(subdomainTenantResolver.resolve(nonAuthenticatedRequest)).thenReturn(Optional.of(2L));
-    assertThat(tenantResolverService.resolve(nonAuthenticatedRequest)).isEqualTo(2L);
-  }
-
-  @Test
-  void resolve_Should_ReturnNullTenantForNonAuthUsersAndSingleDomainMultitenancyMode() {
+  void resolve_Should_ThrowAccessDeniedExceptionForNotAuthenticatedUser_IfSubdomainCouldNotBeDetermined() {
     // given
-    ReflectionTestUtils.setField(tenantResolverService, "multitenancyWithSingleDomain", true);
+    when(subdomainTenantResolver.canResolve(nonAuthenticatedRequest)).thenReturn(false);
     // when, then
-    assertThat(tenantResolverService.resolve(nonAuthenticatedRequest)).isNull();
+    assertThrows(AccessDeniedException.class,
+        () -> tenantResolverService.resolve(nonAuthenticatedRequest));
+  }
+
+  @Test
+  void resolve_Should_ResolveTenantId_IfSubdomainCouldBeDetermined() {
+    // given
+    when(subdomainTenantResolver.canResolve(nonAuthenticatedRequest)).thenReturn(true);
+    when(subdomainTenantResolver.resolve(nonAuthenticatedRequest)).thenReturn(Optional.of(1L));
+    // when
+    Long resolved = tenantResolverService.resolve(nonAuthenticatedRequest);
+    // then
+    assertThat(resolved).isEqualTo(1L);
   }
 
   @Test
@@ -121,9 +130,9 @@ class TenantResolverServiceTest {
     // given
     givenUserIsAuthenticated();
     when(allTenantAccessTenantResolver.canResolve(authenticatedRequest)).thenReturn(true);
-    when(allTenantAccessTenantResolver.resolve(authenticatedRequest)).thenReturn(Optional.of(TECHNICAL_CONTEXT));
+    when(allTenantAccessTenantResolver.resolve(authenticatedRequest)).thenReturn(
+        Optional.of(TECHNICAL_CONTEXT));
 
-    // when
     Long resolved = tenantResolverService.resolve(authenticatedRequest);
     // then
     assertThat(resolved).isEqualTo(TECHNICAL_CONTEXT);

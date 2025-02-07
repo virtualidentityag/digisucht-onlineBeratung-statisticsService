@@ -19,9 +19,10 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.caritas.cob.statisticsservice.api.authorization.RoleAuthorizationAuthorityMapper;
 import de.caritas.cob.statisticsservice.api.authorization.StatisticsFeatureAuthorisationService;
-import de.caritas.cob.statisticsservice.api.service.LogService;
 import de.caritas.cob.statisticsservice.api.statistics.service.RegistrationStatisticsService;
 import de.caritas.cob.statisticsservice.api.statistics.service.StatisticsService;
+import de.caritas.cob.statisticsservice.config.AuthorisationService;
+import de.caritas.cob.statisticsservice.config.JwtAuthConverterProperties;
 import org.junit.jupiter.api.Test;
 import org.keycloak.adapters.KeycloakConfigResolver;
 import org.mockito.Mock;
@@ -46,6 +47,10 @@ class StatisticsControllerIT {
   private RoleAuthorizationAuthorityMapper roleAuthorizationAuthorityMapper;
   @MockBean
   MongoTemplate mongoTemplate;
+  @MockBean
+  private AuthorisationService authorisationService;
+  @MockBean
+  private JwtAuthConverterProperties jwtAuthConverterProperties;
   @MockBean
   StatisticsService statisticsService;
 
