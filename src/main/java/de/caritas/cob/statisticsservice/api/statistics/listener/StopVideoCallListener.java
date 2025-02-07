@@ -80,8 +80,7 @@ public class StopVideoCallListener {
       StopVideoCallStatisticsEventMessage eventMessage, List<StatisticsEvent> statisticsEventList) {
     if (statisticsEventList.size() > 1) {
       throw new AmqpException(
-          String.format(
-              "More than one %s events for call uid %s found",
+          "More than one %s events for call uid %s found".formatted(
               EventType.START_VIDEO_CALL, eventMessage.getVideoCallUuid()));
     }
   }
@@ -90,8 +89,7 @@ public class StopVideoCallListener {
       StopVideoCallStatisticsEventMessage eventMessage, List<StatisticsEvent> statisticsEventList) {
     if (statisticsEventList.isEmpty()) {
       throw new AmqpException(
-          String.format(
-              "No %s event for call uid %s found",
+          "No %s event for call uid %s found".formatted(
               EventType.START_VIDEO_CALL, eventMessage.getVideoCallUuid()));
     }
   }
