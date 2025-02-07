@@ -32,6 +32,8 @@
     <spring-data-mongodb.version>3.3.5</spring-data-mongodb.version>
     <spring-security.version>6.4.2</spring-security.version>
     <ehcache.version>2.10.9.2</ehcache.version>
+    <flapdoodle.embed.mongo.version>3.4.5</flapdoodle.embed.mongo.version>
+    <google.code.findbugs.version>3.0.2</google.code.findbugs.version>
   </properties>
 
   <dependencyManagement>
@@ -169,12 +171,6 @@
     </dependency>
 
     <dependency>
-      <groupId>org.keycloak</groupId>
-      <artifactId>keycloak-spring-boot-starter</artifactId>
-      <version>15.0.2</version>
-    </dependency>
-
-    <dependency>
       <groupId>org.apache.httpcomponents.client5</groupId>
       <artifactId>httpclient5</artifactId>
     </dependency>
@@ -191,14 +187,14 @@
     <dependency>
       <groupId>de.flapdoodle.embed</groupId>
       <artifactId>de.flapdoodle.embed.mongo</artifactId>
-      <version>3.4.5</version>
+      <version>${flapdoodle.embed.mongo.version}</version>
       <scope>test</scope>
     </dependency>
 
     <dependency>
       <groupId>com.google.code.findbugs</groupId>
       <artifactId>jsr305</artifactId>
-      <version>3.0.2</version>
+      <version>${google.code.findbugs.version}</version>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
