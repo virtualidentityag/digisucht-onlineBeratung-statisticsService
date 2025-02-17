@@ -2,6 +2,7 @@ package de.caritas.cob.statisticsservice.api.exception.httpresponses;
 
 import static java.util.Objects.nonNull;
 
+import java.io.Serial;
 import java.util.function.Consumer;
 
 /**
@@ -9,6 +10,7 @@ import java.util.function.Consumer;
  */
 public abstract class CustomHttpStatusException extends RuntimeException {
 
+  @Serial
   private static final long serialVersionUID = -3545035432045919306L;
   private final Consumer<Exception> loggingMethod;
 

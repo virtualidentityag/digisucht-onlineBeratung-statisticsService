@@ -4,43 +4,48 @@ import static de.caritas.cob.statisticsservice.api.authorization.Authority.CONSU
 import static de.caritas.cob.statisticsservice.api.authorization.Authority.SINGLE_TENANT_ADMIN;
 import static de.caritas.cob.statisticsservice.api.authorization.Authority.TENANT_ADMIN;
 
-import de.caritas.cob.statisticsservice.api.authorization.RoleAuthorizationAuthorityMapper;
 import de.caritas.cob.statisticsservice.filter.HttpTenantFilter;
 import de.caritas.cob.statisticsservice.filter.StatelessCsrfFilter;
-import javax.annotation.Nullable;
-import org.keycloak.adapters.KeycloakConfigResolver;
-import org.keycloak.adapters.springboot.KeycloakSpringBootConfigResolver;
+import jakarta.annotation.Nullable;
+import lombok.RequiredArgsConstructor;
 import org.keycloak.adapters.springsecurity.KeycloakConfiguration;
-import org.keycloak.adapters.springsecurity.client.KeycloakClientRequestFactory;
-import org.keycloak.adapters.springsecurity.config.KeycloakWebSecurityConfigurerAdapter;
-import org.keycloak.adapters.springsecurity.filter.KeycloakAuthenticatedActionsFilter;
-import org.keycloak.adapters.springsecurity.filter.KeycloakAuthenticationProcessingFilter;
-import org.keycloak.adapters.springsecurity.filter.KeycloakPreAuthActionsFilter;
-import org.keycloak.adapters.springsecurity.filter.KeycloakSecurityContextRequestFilter;
+import org.keycloak.adapters.springsecurity.authentication.KeycloakAuthenticationProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
+import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.session.NullAuthenticatedSessionStrategy;
 import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.web.servlet.config.annotation.PathMatchConfigurer;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
  * Provides the Keycloak/Spring Security configuration.
  */
+@Configuration
 @KeycloakConfiguration
-public class SecurityConfig extends KeycloakWebSecurityConfigurerAdapter {
+@EnableMethodSecurity
+@EnableWebSecurity
+@RequiredArgsConstructor
+public class SecurityConfig implements WebMvcConfigurer {
 
   public static final String[] WHITE_LIST =
       new String[]{"/statistics/docs", "/statistics/docs/**", "/v2/api-docs", "/configuration/ui",
           "/swagger-resources/**", "/configuration/security", "/swagger-ui", "/swagger-ui/**", "/webjars/**", "/healthcheck/health", "/healthcheck/health/**"};
 
-  @SuppressWarnings("unused")
-  private final KeycloakClientRequestFactory keycloakClientRequestFactory;
+  @Autowired
+  AuthorisationService authorisationService;
+
+  @Autowired
+  JwtAuthConverterProperties jwtAuthConverterProperties;
 
   @Value("${csrf.cookie.property}")
   private String csrfCookieProperty;
@@ -58,117 +63,37 @@ public class SecurityConfig extends KeycloakWebSecurityConfigurerAdapter {
   @Value("${multitenancy.enabled}")
   private boolean multitenancyEnabled;
 
-  /**
-   * Processes HTTP requests and checks for a valid spring security authentication for the
-   * (Keycloak) principal (authorization header).
-   */
-  public SecurityConfig(KeycloakClientRequestFactory keycloakClientRequestFactory) {
-    this.keycloakClientRequestFactory = keycloakClientRequestFactory;
-  }
 
   /**
    * Configure spring security filter chain: disable default Spring Boot CSRF token behavior and add
    * custom {@link StatelessCsrfFilter}, set all sessions to be fully stateless, define necessary
    * Keycloak roles for specific REST API paths
    */
-  @Override
-  protected void configure(HttpSecurity http) throws Exception {
-    super.configure(http);
-    HttpSecurity httpSecurity = http.csrf().disable()
+  @Bean
+  SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    HttpSecurity httpSecurity = http.csrf(csrf -> csrf.disable())
         .addFilterBefore(new StatelessCsrfFilter(csrfCookieProperty, csrfHeaderProperty),
             CsrfFilter.class);
 
     if (multitenancyEnabled) {
       httpSecurity = httpSecurity
-          .addFilterAfter(httpTenantFilter, KeycloakAuthenticatedActionsFilter.class);
+          .addFilterAfter(httpTenantFilter, BearerTokenAuthenticationFilter.class);
     }
 
     httpSecurity
-        .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-        .sessionAuthenticationStrategy(sessionAuthenticationStrategy()).and().authorizeRequests()
-        .antMatchers(WHITE_LIST).permitAll()
-        .antMatchers("/statistics/consultant").hasAuthority(CONSULTANT.getAuthority())
-        .antMatchers("/statistics/registration").hasAnyAuthority(SINGLE_TENANT_ADMIN.getAuthority(),
-            TENANT_ADMIN.getAuthority())
-        .anyRequest().denyAll();
+        .sessionManagement(management -> management.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .authorizeHttpRequests(requests -> requests
+        .requestMatchers(WHITE_LIST).permitAll()
+        .requestMatchers("/statistics/consultant").hasAuthority(CONSULTANT.getAuthority())
+        .requestMatchers("/statistics/registration").hasAnyAuthority(SINGLE_TENANT_ADMIN.getAuthority(),
+        TENANT_ADMIN.getAuthority())
+        .anyRequest().denyAll());
+    httpSecurity.oauth2ResourceServer(server -> server.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthConverter())));
+    return httpSecurity.build();
   }
 
-
-  /**
-   * Change springs authentication strategy to be stateless (no session is being created).
-   */
   @Bean
-  @Override
-  protected SessionAuthenticationStrategy sessionAuthenticationStrategy() {
-    return new NullAuthenticatedSessionStrategy();
-  }
-
-  /**
-   * Change the default AuthenticationProvider to KeycloakAuthenticationProvider and register it in
-   * the spring security context. This maps the Kecloak roles to match the spring security roles
-   * (prefix ROLE_).
-   */
-  @Autowired
-  public void configureGlobal(AuthenticationManagerBuilder auth,
-      RoleAuthorizationAuthorityMapper authorityMapper) {
-    var keyCloakAuthProvider = keycloakAuthenticationProvider();
-    keyCloakAuthProvider.setGrantedAuthoritiesMapper(authorityMapper);
-
-    auth.authenticationProvider(keyCloakAuthProvider);
-  }
-
-  /**
-   * From the Keycloag documentation: "Spring Boot attempts to eagerly register filter beans with
-   * the web application context. Therefore, when running the Keycloak Spring Security adapter in a
-   * Spring Boot environment, it may be necessary to add FilterRegistrationBeans to your security
-   * configuration to prevent the Keycloak filters from being registered twice."
-   *
-   * https://github.com/keycloak/keycloak-documentation/blob/master/securing_apps/topics/oidc/java/spring-security-adapter.adoc
-   *
-   * {@link package.class#member label}
-   */
-  @SuppressWarnings({"rawtypes", "unchecked"})
-  @Bean
-  public FilterRegistrationBean keycloakAuthenticationProcessingFilterRegistrationBean(
-      KeycloakAuthenticationProcessingFilter filter) {
-    var registrationBean = new FilterRegistrationBean(filter);
-    registrationBean.setEnabled(false);
-    return registrationBean;
-  }
-
-  /**
-   * see above: {@link SecurityConfig#keycloakAuthenticationProcessingFilterRegistrationBean(KeycloakAuthenticationProcessingFilter)
-   */
-  @SuppressWarnings({"rawtypes", "unchecked"})
-  @Bean
-  public FilterRegistrationBean keycloakPreAuthActionsFilterRegistrationBean(
-      KeycloakPreAuthActionsFilter filter) {
-    var registrationBean = new FilterRegistrationBean(filter);
-    registrationBean.setEnabled(false);
-    return registrationBean;
-  }
-
-  /**
-   * see above: {@link SecurityConfig#keycloakAuthenticationProcessingFilterRegistrationBean(KeycloakAuthenticationProcessingFilter)
-   */
-  @SuppressWarnings({"rawtypes", "unchecked"})
-  @Bean
-  public FilterRegistrationBean keycloakAuthenticatedActionsFilterBean(
-      KeycloakAuthenticatedActionsFilter filter) {
-    var registrationBean = new FilterRegistrationBean(filter);
-    registrationBean.setEnabled(false);
-    return registrationBean;
-  }
-
-  /**
-   * see above: {@link SecurityConfig#keycloakAuthenticationProcessingFilterRegistrationBean(KeycloakAuthenticationProcessingFilter)
-   */
-  @SuppressWarnings({"rawtypes", "unchecked"})
-  @Bean
-  public FilterRegistrationBean keycloakSecurityContextRequestFilterBean(
-      KeycloakSecurityContextRequestFilter filter) {
-    var registrationBean = new FilterRegistrationBean(filter);
-    registrationBean.setEnabled(false);
-    return registrationBean;
+  JwtAuthConverter jwtAuthConverter() {
+    return new JwtAuthConverter(jwtAuthConverterProperties, authorisationService);
   }
 }

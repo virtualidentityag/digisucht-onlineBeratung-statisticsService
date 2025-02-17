@@ -2,7 +2,7 @@ package de.caritas.cob.statisticsservice.api.tenant;
 
 import de.caritas.cob.statisticsservice.api.service.securityheader.TenantHeaderSupplier;
 import java.util.Optional;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
 import lombok.NonNull;
 import org.springframework.stereotype.Component;
