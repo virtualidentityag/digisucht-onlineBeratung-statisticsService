@@ -5,6 +5,7 @@ import static de.caritas.cob.statisticsservice.api.testhelper.TestConstants.ASKE
 import static de.caritas.cob.statisticsservice.api.testhelper.TestConstants.CONSULTING_TYPE_ID;
 import static de.caritas.cob.statisticsservice.api.testhelper.TestConstants.TENANT_ID;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThan;
 import static org.mockito.ArgumentMatchers.any;
@@ -42,6 +43,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class RegistrationStatisticsServiceTest {
+
+  public static final int DAYS_IN_YEAR = 365;
   @InjectMocks
   RegistrationStatisticsService registrationStatisticsService;
   @Mock
@@ -67,10 +70,17 @@ class RegistrationStatisticsServiceTest {
     verify(statisticsEventRepository)
         .getAllRegistrationStatistics(argumentCaptor.capture());
 
-    assertThat(argumentCaptor.getValue().getEpochSecond(), lessThan(Instant.now().minus(11, ChronoUnit.MONTHS).getEpochSecond()));
+    assertThat(argumentCaptor.getValue().getEpochSecond(), lessThan(Instant.now().minus(
+        DAYS_IN_YEAR - 1, ChronoUnit.DAYS).getEpochSecond()));
+    assertThat(argumentCaptor.getValue().getEpochSecond(),
+        greaterThan(Instant.now().minus(DAYS_IN_YEAR + 1, ChronoUnit.DAYS).getEpochSecond()));
+
     verify(statisticsEventRepository)
         .getAllRegistrationStatistics(argumentCaptor.capture());
-    assertThat(argumentCaptor.getValue().getEpochSecond(), lessThan(Instant.now().minus(11, ChronoUnit.MONTHS).getEpochSecond()));
+    assertThat(argumentCaptor.getValue().getEpochSecond(),
+        lessThan(Instant.now().minus(DAYS_IN_YEAR - 1, ChronoUnit.DAYS).getEpochSecond()));
+    assertThat(argumentCaptor.getValue().getEpochSecond(),
+        greaterThan(Instant.now().minus(DAYS_IN_YEAR + 1, ChronoUnit.DAYS).getEpochSecond()));
 
     verifyNoInteractions(statisticsEventTenantAwareRepository);
   }
@@ -103,8 +113,9 @@ class RegistrationStatisticsServiceTest {
     var result = registrationStatisticsService.fetchRegistrationStatisticsData();
 
     // then
-    verify(registrationStatisticsDTOConverter).convertStatisticsEvent(any(StatisticsEvent.class), any(
-        StatisticEventsContainer.class));
+    verify(registrationStatisticsDTOConverter).convertStatisticsEvent(any(StatisticsEvent.class),
+        any(
+            StatisticEventsContainer.class));
 
     assertThat(result.getRegistrationStatistics().get(0).getUserId(), is(ASKER_ID));
     assertThat(result.getRegistrationStatistics().get(0).getRegistrationDate(),
@@ -130,7 +141,8 @@ class RegistrationStatisticsServiceTest {
     var result = registrationStatisticsService.fetchRegistrationStatisticsData();
 
     // then
-    verify(registrationStatisticsDTOConverter).convertStatisticsEvent(any(StatisticsEvent.class), any(StatisticEventsContainer.class));
+    verify(registrationStatisticsDTOConverter).convertStatisticsEvent(any(StatisticsEvent.class),
+        any(StatisticEventsContainer.class));
 
     assertThat(result.getRegistrationStatistics().get(0).getEndDate(), is("end date 1"));
 
@@ -159,13 +171,15 @@ class RegistrationStatisticsServiceTest {
         .build()
     );
 
-    when(statisticsEventRepository.getAllRegistrationStatistics(Mockito.any(Instant.class))).thenReturn(testData);
+    when(statisticsEventRepository.getAllRegistrationStatistics(
+        Mockito.any(Instant.class))).thenReturn(testData);
   }
 
   private void givenArchiveSessionEvents() {
     List<StatisticsEvent> archiveEvents = List.of(archiveSessionEvent(1L, "end date 1"),
         archiveSessionEvent(99L, "end date 2"));
-    when(statisticsEventRepository.getAllArchiveSessionEvents(Mockito.any(Instant.class))).thenReturn(archiveEvents);
+    when(statisticsEventRepository.getAllArchiveSessionEvents(
+        Mockito.any(Instant.class))).thenReturn(archiveEvents);
   }
 
   private StatisticsEvent archiveSessionEvent(Long sessionId, String endDate) {

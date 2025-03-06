@@ -25,7 +25,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class RegistrationStatisticsService {
 
-  public static final Instant LAST_YEAR_INSTANT = Instant.now().minus(12, ChronoUnit.MONTHS);
+  private static final Instant LAST_YEAR_INSTANT = Instant.now().minus(365, ChronoUnit.DAYS);
 
   @Value("${multitenancy.enabled}")
   private Boolean multitenancyEnabled;
