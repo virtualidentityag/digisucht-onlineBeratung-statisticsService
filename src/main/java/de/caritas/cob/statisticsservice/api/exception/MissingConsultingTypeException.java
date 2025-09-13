@@ -1,7 +1,10 @@
 package de.caritas.cob.statisticsservice.api.exception;
 
+import java.io.Serial;
+
 public class MissingConsultingTypeException extends Exception {
 
+  @Serial
   private static final long serialVersionUID = -6127271234647444277L;
 
   /**

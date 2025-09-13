@@ -8,40 +8,69 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.caritas.cob.statisticsservice.StatisticsServiceApplication;
 import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.StatisticsEvent;
+import de.flapdoodle.embed.mongo.MongodExecutable;
+import de.flapdoodle.embed.mongo.MongodStarter;
+import de.flapdoodle.embed.mongo.config.MongodConfig;
+import de.flapdoodle.embed.mongo.config.Net;
+import de.flapdoodle.embed.mongo.distribution.Version;
+import de.flapdoodle.embed.process.runtime.Network;
 import java.io.IOException;
 import java.util.List;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.data.mongo.DataMongoTest;
+import org.springframework.boot.test.util.TestPropertyValues;
+import org.springframework.context.ApplicationContextInitializer;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.junit4.SpringRunner;
 
 @DataMongoTest()
-@ContextConfiguration(classes = StatisticsServiceApplication.class)
-@RunWith(SpringRunner.class)
+@ContextConfiguration(classes = StatisticsServiceApplication.class, initializers = StatisticsEventTenantAwareRepositoryIT.Initializer.class)
 @TestPropertySource(properties = "spring.profiles.active=testing")
 @TestPropertySource(properties = "multitenancy.enabled=true")
-public class StatisticsEventTenantAwareRepositoryIT {
+class StatisticsEventTenantAwareRepositoryIT {
 
-  public static final String MONGODB_STATISTICS_EVENTS_JSON_FILENAME =
-      "mongodb/StatisticsEvents.json";
+  static final String MONGODB_STATISTICS_EVENTS_JSON_FILENAME = "mongodb/StatisticsEvents.json";
+  private final String MONGO_COLLECTION_NAME = "statistics_event";
+  private static MongodExecutable mongodExecutable;
+  private static int mongoPort;
 
   @Autowired
   StatisticsEventTenantAwareRepository statisticsEventTenantAwareRepository;
 
-  private final String MONGO_COLLECTION_NAME = "statistics_event";
   @Autowired
   StatisticsEventRepository statisticsEventRepository;
+
   @Autowired
   MongoTemplate mongoTemplate;
 
-  @Before
-  public void preFillMongoDb() throws IOException {
+  @BeforeAll
+  static void setUp() throws IOException {
+    MongodStarter starter = MongodStarter.getDefaultInstance();
+    mongoPort = 27017;
+    MongodConfig mongodConfig = MongodConfig.builder()
+        .version(Version.Main.V4_0)
+        .net(new Net(mongoPort, Network.localhostIsIPv6()))
+        .build();
+    mongodExecutable = starter.prepare(mongodConfig);
+    mongodExecutable.start();
+  }
+
+  @AfterAll
+  static void tearDown() {
+    if (mongodExecutable != null) {
+      mongodExecutable.stop();
+    }
+  }
+
+  @BeforeEach
+  void preFillMongoDb() throws IOException {
     mongoTemplate.dropCollection(MONGO_COLLECTION_NAME);
     ObjectMapper objectMapper = new ObjectMapper();
     objectMapper.registerModule(new JavaTimeModule());
@@ -54,15 +83,25 @@ public class StatisticsEventTenantAwareRepositoryIT {
   }
 
   @Test
-  public void getAllRegistrationStatistics_Should_ReturnRegistrationStatisticsFilteredByTenantId() {
+  void getAllRegistrationStatistics_Should_ReturnRegistrationStatisticsFilteredByTenantId() {
 
     List<StatisticsEvent> allRegistrationStatistics = statisticsEventTenantAwareRepository.getAllRegistrationStatistics(1L);
     assertThat(allRegistrationStatistics, hasSize(1));
   }
 
   @Test
-  public void getAllArchiveSessionEvents_Should_ReturnArchiveSessionEventsFilteredByTenantId() {
+  void getAllArchiveSessionEvents_Should_ReturnArchiveSessionEventsFilteredByTenantId() {
     List<StatisticsEvent> allArchiveSessionEvents = statisticsEventTenantAwareRepository.getAllArchiveSessionEvents(1L);
     assertThat(allArchiveSessionEvents, hasSize(2));
+  }
+
+  static class Initializer implements
+      ApplicationContextInitializer<ConfigurableApplicationContext> {
+    @Override
+    public void initialize(ConfigurableApplicationContext configurableApplicationContext) {
+      TestPropertyValues.of(
+          "spring.data.mongodb.uri=mongodb://localhost:" + mongoPort + "/test"
+      ).applyTo(configurableApplicationContext.getEnvironment());
+    }
   }
 }

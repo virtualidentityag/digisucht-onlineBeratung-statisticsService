@@ -14,6 +14,12 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.caritas.cob.statisticsservice.StatisticsServiceApplication;
 import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.StatisticsEvent;
 import de.caritas.cob.statisticsservice.api.statistics.repository.StatisticsEventRepository.Count;
+import de.flapdoodle.embed.mongo.MongodExecutable;
+import de.flapdoodle.embed.mongo.MongodStarter;
+import de.flapdoodle.embed.mongo.config.MongodConfig;
+import de.flapdoodle.embed.mongo.config.Net;
+import de.flapdoodle.embed.mongo.distribution.Version;
+import de.flapdoodle.embed.process.runtime.Network;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -22,38 +28,62 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import org.bson.Document;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.data.mongo.DataMongoTest;
+import org.springframework.boot.test.util.TestPropertyValues;
+import org.springframework.context.ApplicationContextInitializer;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.junit4.SpringRunner;
 
-@DataMongoTest()
-@ContextConfiguration(classes = StatisticsServiceApplication.class)
-@RunWith(SpringRunner.class)
+@DataMongoTest
+@ContextConfiguration(classes = StatisticsServiceApplication.class, initializers = StatisticsEventRepositoryIT.Initializer.class)
 @TestPropertySource(properties = "spring.profiles.active=testing")
-public class StatisticsEventRepositoryIT {
+class StatisticsEventRepositoryIT {
 
-  public static final String MONGODB_STATISTICS_EVENTS_JSON_FILENAME =
+
+  static final String MONGODB_STATISTICS_EVENTS_JSON_FILENAME =
       "mongodb/StatisticsEvents.json";
   private final Instant dateFromConverted =
       OffsetDateTime.of(DATE_FROM, LocalTime.MIN, ZoneOffset.UTC).toInstant();
   private final Instant dateToConverted =
       OffsetDateTime.of(DATE_TO, LocalTime.MAX, ZoneOffset.UTC).toInstant();
   private final String MONGO_COLLECTION_NAME = "statistics_event";
+  private static MongodExecutable mongodExecutable;
+  private static int mongoPort;
   @Autowired
   StatisticsEventRepository statisticsEventRepository;
   @Autowired
   MongoTemplate mongoTemplate;
 
-  @Before
-  public void preFillMongoDb() throws IOException {
+  @BeforeAll
+  static void setUp() throws IOException {
+    MongodStarter starter = MongodStarter.getDefaultInstance();
+    mongoPort = 27017;
+    MongodConfig mongodConfig = MongodConfig.builder()
+        .version(Version.Main.V4_0)
+        .net(new Net(mongoPort, Network.localhostIsIPv6()))
+        .build();
+    mongodExecutable = starter.prepare(mongodConfig);
+    mongodExecutable.start();
+  }
+
+  @AfterAll
+  static void tearDown() {
+    if (mongodExecutable != null) {
+      mongodExecutable.stop();
+    }
+  }
+
+  @BeforeEach
+  void preFillMongoDb() throws IOException {
     mongoTemplate.dropCollection(MONGO_COLLECTION_NAME);
     ObjectMapper objectMapper = new ObjectMapper();
     objectMapper.registerModule(new JavaTimeModule());
@@ -72,7 +102,7 @@ public class StatisticsEventRepositoryIT {
   }
 
   @Test
-  public void calculateNumberOfAssignedSessionsForUser_Should_ReturnCorrectNumberOfSessions() {
+  void calculateNumberOfAssignedSessionsForUser_Should_ReturnCorrectNumberOfSessions() {
     assertThat(
         statisticsEventRepository.calculateNumberOfAssignedSessionsForUser(
             CONSULTANT_ID, dateFromConverted, dateToConverted),
@@ -80,7 +110,7 @@ public class StatisticsEventRepositoryIT {
   }
 
   @Test
-  public void calculateNumbersOfSessionsWhereUserWasActive_Should_ReturnNull_WHEN_queryDoesNotMatchAnyResult() {
+  void calculateNumbersOfSessionsWhereUserWasActive_Should_ReturnNull_WHEN_queryDoesNotMatchAnyResult() {
     var currentDateTime =
         OffsetDateTime.of(LocalDateTime.ofEpochSecond(0L, 0, ZoneOffset.UTC), ZoneOffset.UTC)
             .toInstant();
@@ -91,7 +121,7 @@ public class StatisticsEventRepositoryIT {
   }
 
   @Test
-  public void calculateNumbersOfSessionsWhereUserWasActive_Should_ReturnCorrectNumberOfSessions() {
+  void calculateNumbersOfSessionsWhereUserWasActive_Should_ReturnCorrectNumberOfSessions() {
     assertThat(
         statisticsEventRepository.calculateNumbersOfSessionsWhereUserWasActive(
             CONSULTANT_ID, dateFromConverted, dateToConverted).getTotalCount(),
@@ -99,7 +129,7 @@ public class StatisticsEventRepositoryIT {
   }
 
   @Test
-  public void calculateNumberOfSentMessagesForUser_Should_ReturnCorrectNumberOfMessages() {
+  void calculateNumberOfSentMessagesForUser_Should_ReturnCorrectNumberOfMessages() {
     assertThat(
         statisticsEventRepository.calculateNumberOfSentMessagesForUser(
             CONSULTANT_ID, dateFromConverted, dateToConverted),
@@ -107,7 +137,7 @@ public class StatisticsEventRepositoryIT {
   }
 
   @Test
-  public void calculateTimeInVideoCallsForUser_Should_ReturnCorrectTime() {
+  void calculateTimeInVideoCallsForUser_Should_ReturnCorrectTime() {
     assertThat(
         statisticsEventRepository.calculateTimeInVideoCallsForUser(
             CONSULTANT_ID, dateFromConverted, dateToConverted).getTotal(),
@@ -115,7 +145,7 @@ public class StatisticsEventRepositoryIT {
   }
 
   @Test
-  public void calculateTimeInVideoCallsForUser_Should_ReturnNull_WHEN_queryDoesNotMatchAnyResult() {
+  void calculateTimeInVideoCallsForUser_Should_ReturnNull_WHEN_queryDoesNotMatchAnyResult() {
     var currentDateTime =
         OffsetDateTime.of(LocalDateTime.ofEpochSecond(0L, 0, ZoneOffset.UTC), ZoneOffset.UTC)
             .toInstant();
@@ -126,24 +156,34 @@ public class StatisticsEventRepositoryIT {
   }
 
   @Test
-  public void getAllRegistrationStatistics_Should_ReturnRegistrationStatistics() {
+  void getAllRegistrationStatistics_Should_ReturnRegistrationStatistics() {
 
     List<StatisticsEvent> allRegistrationStatistics = statisticsEventRepository.getAllRegistrationStatistics();
     assertThat(allRegistrationStatistics, hasSize(2));
   }
 
   @Test
-  public void getAllArchiveSessionEvents_Should_ReturnArchiveSessionEvents() {
+  void getAllArchiveSessionEvents_Should_ReturnArchiveSessionEvents() {
     List<StatisticsEvent> allArchiveSessionEvents = statisticsEventRepository.getAllArchiveSessionEvents();
     assertThat(allArchiveSessionEvents, hasSize(3));
   }
 
   @Test
-  @Ignore("For some reason this test is failing in this test scenario caused by the event.0.startTime and event.0.endTime filters.")
-  public void calculateNumberOfDoneAppointmentsForConsultant_Should_ReturnCorrectNumberOfAppointments() {
+  @Disabled("For some reason this test is failing in this test scenario caused by the event.0.startTime and event.0.endTime filters.")
+  void calculateNumberOfDoneAppointmentsForConsultant_Should_ReturnCorrectNumberOfAppointments() {
     Count count = statisticsEventRepository.calculateNumbersOfDoneAppointments(CONSULTANT_ID,
         dateFromConverted, dateToConverted, dateToConverted);
 
     assertThat(count.getTotalCount(), is(1L));
+  }
+
+  static class Initializer implements
+      ApplicationContextInitializer<ConfigurableApplicationContext> {
+    @Override
+    public void initialize(ConfigurableApplicationContext configurableApplicationContext) {
+      TestPropertyValues.of(
+          "spring.data.mongodb.uri=mongodb://localhost:" + mongoPort + "/test"
+      ).applyTo(configurableApplicationContext.getEnvironment());
+    }
   }
 }
