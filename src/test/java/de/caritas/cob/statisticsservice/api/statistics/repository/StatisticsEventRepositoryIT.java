@@ -21,6 +21,7 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import org.bson.Document;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -42,15 +43,15 @@ public class StatisticsEventRepositoryIT {
 
   public static final String MONGODB_STATISTICS_EVENTS_JSON_FILENAME =
       "mongodb/StatisticsEvents.json";
+  private static final String MONGO_COLLECTION_NAME = "statistics_event";
+
   private final Instant dateFromConverted =
       OffsetDateTime.of(DATE_FROM, LocalTime.MIN, ZoneOffset.UTC).toInstant();
   private final Instant dateToConverted =
       OffsetDateTime.of(DATE_TO, LocalTime.MAX, ZoneOffset.UTC).toInstant();
-  private final String MONGO_COLLECTION_NAME = "statistics_event";
-  @Autowired
-  StatisticsEventRepository statisticsEventRepository;
-  @Autowired
-  MongoTemplate mongoTemplate;
+
+  @Autowired StatisticsEventRepository statisticsEventRepository;
+  @Autowired MongoTemplate mongoTemplate;
 
   @Before
   public void preFillMongoDb() throws IOException {
@@ -60,15 +61,19 @@ public class StatisticsEventRepositoryIT {
     List<StatisticsEvent> statisticEvents =
         objectMapper.readValue(
             new ClassPathResource(MONGODB_STATISTICS_EVENTS_JSON_FILENAME).getFile(),
-            new TypeReference<>() {
-            });
+            new TypeReference<>() {});
     mongoTemplate.insert(statisticEvents, MONGO_COLLECTION_NAME);
-    mongoTemplate.getDb().getCollection(MONGO_COLLECTION_NAME).aggregate(
-        List.of(new Document("$addFields",
-            new Document("metaData.endTime",
-                new Document("$toDate", "$metaData.endTime"))
-                .append("metaData.startTime",
-                    new Document("$toDate", "$metaData.startTime")))));
+    mongoTemplate
+        .getDb()
+        .getCollection(MONGO_COLLECTION_NAME)
+        .aggregate(
+            List.of(
+                new Document(
+                    "$addFields",
+                    new Document("metaData.endTime", new Document("$toDate", "$metaData.endTime"))
+                        .append(
+                            "metaData.startTime",
+                            new Document("$toDate", "$metaData.startTime")))));
   }
 
   @Test
@@ -80,21 +85,25 @@ public class StatisticsEventRepositoryIT {
   }
 
   @Test
-  public void calculateNumbersOfSessionsWhereUserWasActive_Should_ReturnNull_WHEN_queryDoesNotMatchAnyResult() {
+  public void
+      calculateNumbersOfSessionsWhereUserWasActive_Should_ReturnNull_WHEN_queryDoesNotMatchAnyResult() {
     var currentDateTime =
         OffsetDateTime.of(LocalDateTime.ofEpochSecond(0L, 0, ZoneOffset.UTC), ZoneOffset.UTC)
             .toInstant();
 
     assertThat(
         statisticsEventRepository.calculateNumbersOfSessionsWhereUserWasActive(
-            CONSULTANT_ID, currentDateTime, currentDateTime), nullValue());
+            CONSULTANT_ID, currentDateTime, currentDateTime),
+        nullValue());
   }
 
   @Test
   public void calculateNumbersOfSessionsWhereUserWasActive_Should_ReturnCorrectNumberOfSessions() {
     assertThat(
-        statisticsEventRepository.calculateNumbersOfSessionsWhereUserWasActive(
-            CONSULTANT_ID, dateFromConverted, dateToConverted).getTotalCount(),
+        statisticsEventRepository
+            .calculateNumbersOfSessionsWhereUserWasActive(
+                CONSULTANT_ID, dateFromConverted, dateToConverted)
+            .getTotalCount(),
         is(5L));
   }
 
@@ -109,8 +118,9 @@ public class StatisticsEventRepositoryIT {
   @Test
   public void calculateTimeInVideoCallsForUser_Should_ReturnCorrectTime() {
     assertThat(
-        statisticsEventRepository.calculateTimeInVideoCallsForUser(
-            CONSULTANT_ID, dateFromConverted, dateToConverted).getTotal(),
+        statisticsEventRepository
+            .calculateTimeInVideoCallsForUser(CONSULTANT_ID, dateFromConverted, dateToConverted)
+            .getTotal(),
         is(1800L));
   }
 
@@ -122,27 +132,80 @@ public class StatisticsEventRepositoryIT {
 
     assertThat(
         statisticsEventRepository.calculateTimeInVideoCallsForUser(
-            CONSULTANT_ID, currentDateTime, currentDateTime), nullValue());
+            CONSULTANT_ID, currentDateTime, currentDateTime),
+        nullValue());
   }
 
   @Test
   public void getAllRegistrationStatistics_Should_ReturnRegistrationStatistics() {
 
-    List<StatisticsEvent> allRegistrationStatistics = statisticsEventRepository.getAllRegistrationStatistics();
+    List<StatisticsEvent> allRegistrationStatistics =
+        statisticsEventRepository.getAllRegistrationStatistics();
     assertThat(allRegistrationStatistics, hasSize(2));
   }
 
   @Test
-  public void getAllArchiveSessionEvents_Should_ReturnArchiveSessionEvents() {
-    List<StatisticsEvent> allArchiveSessionEvents = statisticsEventRepository.getAllArchiveSessionEvents();
-    assertThat(allArchiveSessionEvents, hasSize(3));
+  public void getMessageCountsByReceiver_Should_ReturnMessageCountsGroupedByUser() {
+    Map<String, Integer> messageCountsByUser = statisticsEventRepository.getMessageCountsByUser();
+
+    org.assertj.core.api.Assertions.assertThat(messageCountsByUser)
+        .hasSize(2)
+        .containsEntry("10", 3)
+        .containsEntry("20", 3);
   }
 
   @Test
-  @Ignore("For some reason this test is failing in this test scenario caused by the event.0.startTime and event.0.endTime filters.")
-  public void calculateNumberOfDoneAppointmentsForConsultant_Should_ReturnCorrectNumberOfAppointments() {
-    Count count = statisticsEventRepository.calculateNumbersOfDoneAppointments(CONSULTANT_ID,
-        dateFromConverted, dateToConverted, dateToConverted);
+  public void getVideoCallCountsByUser_Should_ReturnVideoCallCountsGroupedByUser() {
+    Map<String, Integer> videoCallCountsByUser =
+        statisticsEventRepository.getVideoCallCountsByUser();
+
+    org.assertj.core.api.Assertions.assertThat(videoCallCountsByUser)
+        .hasSize(2)
+        .containsEntry("10", 2)
+        .containsEntry("20", 2);
+  }
+
+  @Test
+  public void getBookingCountsByUser_Should_ReturnBookingCountsGroupedByUser() {
+    Map<String, Integer> bookingCountsByUser = statisticsEventRepository.getBookingCountsByUser();
+
+    org.assertj.core.api.Assertions.assertThat(bookingCountsByUser)
+        .hasSize(2)
+        .containsEntry("10", 2)
+        .containsEntry("20", 2);
+  }
+
+  @Test
+  public void getDeleteDateByUser_Should_ReturnDeleteDateByUser() {
+    Map<String, String> deleteDateByUser = statisticsEventRepository.getDeleteDateByUser();
+
+    org.assertj.core.api.Assertions.assertThat(deleteDateByUser)
+        .hasSize(3)
+        .containsEntry("10", "2025-10-10T07:09:56Z")
+        .containsEntry("11", "2025-10-11T07:09:56Z")
+        .containsEntry("20", "2025-10-06T07:09:56Z");
+  }
+
+  @Test
+  public void
+      getLatestArchiveSessionEventForSession_Should_ReturnLatestArchiveSessionEventForUser() {
+    Map<Long, String> result = statisticsEventRepository.getLatestArchiveDateBySession();
+
+    org.assertj.core.api.Assertions.assertThat(result)
+        .hasSize(2)
+        // the latest of the existing events
+        .containsEntry(633L, "2022-10-18T10:00:00.00Z")
+        .containsEntry(634L, "2022-10-20T10:00:00.00Z");
+  }
+
+  @Test
+  @Ignore(
+      "For some reason this test is failing in this test scenario caused by the event.0.startTime and event.0.endTime filters.")
+  public void
+      calculateNumberOfDoneAppointmentsForConsultant_Should_ReturnCorrectNumberOfAppointments() {
+    Count count =
+        statisticsEventRepository.calculateNumbersOfDoneAppointments(
+            CONSULTANT_ID, dateFromConverted, dateToConverted, dateToConverted);
 
     assertThat(count.getTotalCount(), is(1L));
   }

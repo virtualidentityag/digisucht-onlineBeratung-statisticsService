@@ -1,14 +1,18 @@
 package de.caritas.cob.statisticsservice.api.statistics.repository;
 
+import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.SessionArchiveDate;
 import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.StatisticsEvent;
+import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.UserDeleteDate;
+import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.UserEventCount;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.springframework.data.mongodb.repository.Aggregation;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
-
-import java.time.Instant;
-import java.util.List;
 
 public interface StatisticsEventRepository extends MongoRepository<StatisticsEvent, String> {
 
@@ -25,23 +29,24 @@ public interface StatisticsEventRepository extends MongoRepository<StatisticsEve
   }
 
   /**
-   * Calculate the number of sessions in which the user was active.
-   * Active means that the user has either sent a message or initiated a video call.
+   * Calculate the number of sessions in which the user was active. Active means that the user has
+   * either sent a message or initiated a video call.
    *
    * @param userId the user id
    * @param dateFrom the start date of the period
    * @param dateTo the end date of the period
    * @return the number of sessions in which the user was active. Could also return null if the
-   * mongo query returns no results.
+   *     mongo query returns no results.
    */
   @Aggregation(
       pipeline = {
-          "{$match:{'user._id': ?0,'sessionId': {$exists:true,$ne:null},'eventType': {'$in': ['START_VIDEO_CALL','CREATE_MESSAGE']},'timestamp':{$gte:?1,$lte:?2}}}",
-          "{$group:{'_id': '$sessionId', 'count': { '$sum': 1 }}}",
-          "{$project:{'_id': 0}}",
-          "{$count:'totalCount'}"
+        "{$match:{'user._id': ?0,'sessionId': {$exists:true,$ne:null},'eventType': {'$in': ['START_VIDEO_CALL','CREATE_MESSAGE']},'timestamp':{$gte:?1,$lte:?2}}}",
+        "{$group:{'_id': '$sessionId', 'count': { '$sum': 1 }}}",
+        "{$project:{'_id': 0}}",
+        "{$count:'totalCount'}"
       })
-  Count calculateNumbersOfSessionsWhereUserWasActive(String userId, Instant dateFrom, Instant dateTo);
+  Count calculateNumbersOfSessionsWhereUserWasActive(
+      String userId, Instant dateFrom, Instant dateTo);
 
   /**
    * Calculate the number of sent messages in the given period.
@@ -51,7 +56,9 @@ public interface StatisticsEventRepository extends MongoRepository<StatisticsEve
    * @param dateTo the end date of the period
    * @return the number of sent messages in the given period
    */
-  @Query(value = "{'user._id': ?0, 'eventType': 'CREATE_MESSAGE', 'timestamp':{$gte:?1,$lte:?2}}", count = true)
+  @Query(
+      value = "{'user._id': ?0, 'eventType': 'CREATE_MESSAGE', 'timestamp':{$gte:?1,$lte:?2}}",
+      count = true)
   long calculateNumberOfSentMessagesForUser(String userId, Instant dateFrom, Instant dateTo);
 
   /**
@@ -61,11 +68,12 @@ public interface StatisticsEventRepository extends MongoRepository<StatisticsEve
    * @param dateFrom the start date of the period
    * @param dateTo the end date of the period
    * @return the total time in seconds. Could also return null if the mongo query returns no
-   * results.
+   *     results.
    */
-  @Aggregation(pipeline = {
-      "{'$match':{'user._id': ?0,'eventType': 'START_VIDEO_CALL','timestamp':{$gte:?1,$lte:?2}}}",
-      "{'$group':{'_id':'','total':{'$sum':'$metaData.duration'}}}"
+  @Aggregation(
+      pipeline = {
+        "{'$match':{'user._id': ?0,'eventType': 'START_VIDEO_CALL','timestamp':{$gte:?1,$lte:?2}}}",
+        "{'$group':{'_id':'','total':{'$sum':'$metaData.duration'}}}"
       })
   Duration calculateTimeInVideoCallsForUser(String userId, Instant dateFrom, Instant dateTo);
 
@@ -77,45 +85,104 @@ public interface StatisticsEventRepository extends MongoRepository<StatisticsEve
    * @param dateTo the end date of the period
    * @return the number of the new sessions
    */
-  @Query(value = "{'user._id': ?0, 'eventType': 'ASSIGN_SESSION', 'timestamp':{$gte:?1,$lte:?2}}", count = true)
+  @Query(
+      value = "{'user._id': ?0, 'eventType': 'ASSIGN_SESSION', 'timestamp':{$gte:?1,$lte:?2}}",
+      count = true)
   long calculateNumberOfAssignedSessionsForUser(String userId, Instant dateFrom, Instant dateTo);
 
-  @Query(value = "{'eventType': 'REGISTRATION'}")
-  List<StatisticsEvent> getAllRegistrationStatistics();
-
-  @Query(value = "{'eventType': 'START_VIDEO_CALL'}")
-  List<StatisticsEvent> getAllStartVideoCallSessionEvents();
-
-  @Query(value = "{'eventType': 'ARCHIVE_SESSION'}")
-  List<StatisticsEvent> getAllArchiveSessionEvents();
-
-  @Query(value = "{'eventType': 'BOOKING_CREATED'}")
-  List<StatisticsEvent> getAllBookingCreatedEvents();
-
-  @Query(value = "{'eventType': 'DELETE_ACCOUNT'}")
-  List<StatisticsEvent> getAllDeleteAccountSessionEvents();
-
-  @Query(value = "{'eventType': 'CREATE_MESSAGE', 'user.userRole': 'CONSULTANT'}")
-  List<StatisticsEvent> getConsultantMessageCreatedEvents();
-
   /**
-   * Calculate the number of done appointments.
-   * Done mean that the endTime of the appointment or the endTime of the latest reschedule has been reached, and it was not canceled
+   * Calculate the number of done appointments. Done mean that the endTime of the appointment or the
+   * endTime of the latest reschedule has been reached, and it was not canceled
    *
    * @param userId the user id
    * @param dateFrom the start date of the period
    * @param dateTo the end date of the period
-   * @return the number of done appointments. Could also return null if the
-   * mongo query returns no results.
+   * @return the number of done appointments. Could also return null if the mongo query returns no
+   *     results.
    */
   @Aggregation(
       pipeline = {
-          "{'$match': {$and: [{'metaData.currentBookingId': {$ne: null}}, {'user._id': {$eq:?0}}]}}",
-          "{'$sort': {'timestamp': -1}}",
-          "{'$group': {'_id': '$metaData.currentBookingId','events': {'$push': {'timestamp': '$timestamp','event': '$eventType','type': '$metaData.type','startTime': '$metaData.startTime','endTime': '$metaData.endTime'}}}}",
-          "{'$match': {$and: [{'events.0.event': {'$ne': 'BOOKING_CANCELLED'}},  {'events.0.startTime': {$gte:?1}}, {'events.0.endTime': {$gte:?1}}, {'events.0.endTime': {$lte:?2}}, {'events.0.endTime': {$lte:?3}}]}}",
-          "{'$count': 'totalCount'}"
-      }
-     )
-  Count calculateNumbersOfDoneAppointments(String userId, Instant dateFrom, Instant dateTo, Instant now);
+        "{'$match': {$and: [{'metaData.currentBookingId': {$ne: null}}, {'user._id': {$eq:?0}}]}}",
+        "{'$sort': {'timestamp': -1}}",
+        "{'$group': {'_id': '$metaData.currentBookingId','events': {'$push': {'timestamp': '$timestamp','event': '$eventType','type': '$metaData.type','startTime': '$metaData.startTime','endTime': '$metaData.endTime'}}}}",
+        "{'$match': {$and: [{'events.0.event': {'$ne': 'BOOKING_CANCELLED'}},  {'events.0.startTime': {$gte:?1}}, {'events.0.endTime': {$gte:?1}}, {'events.0.endTime': {$lte:?2}}, {'events.0.endTime': {$lte:?3}}]}}",
+        "{'$count': 'totalCount'}"
+      })
+  Count calculateNumbersOfDoneAppointments(
+      String userId, Instant dateFrom, Instant dateTo, Instant now);
+
+  /** Retrieves all registration statistics events. */
+  @Query(value = "{'eventType': 'REGISTRATION'}")
+  List<StatisticsEvent> getAllRegistrationStatistics();
+
+  /** Aggregates the number of messages sent by consultants, grouped by advice seeker (receiver). */
+  @Aggregation(
+      pipeline = {
+        "{ '$match': { 'eventType': 'CREATE_MESSAGE', 'user.userRole': 'CONSULTANT', 'metaData.receiverId': { '$ne': null } } }",
+        "{ '$group': { '_id': '$metaData.receiverId', 'count': { '$sum': 1 } } }"
+      })
+  List<UserEventCount> aggregateMessageCountsByUser();
+
+  /** Converts the aggregated message counts into a map of advice seeker IDs to message counts. */
+  default Map<String, Integer> getMessageCountsByUser() {
+    return aggregateMessageCountsByUser().stream()
+        .collect(Collectors.toMap(UserEventCount::getId, UserEventCount::getCount));
+  }
+
+  /** Aggregates the number of video calls started, grouped by advice seeker. */
+  @Aggregation(
+      pipeline = {
+        "{ '$match': { 'eventType': 'START_VIDEO_CALL', 'metaData.adviceSeekerId': { '$ne': null } } }",
+        "{ '$group': { '_id': '$metaData.adviceSeekerId', 'count': { '$sum': 1 } } }"
+      })
+  List<UserEventCount> aggregateVideoCallCountsByUser();
+
+  /** Converts the aggregated video call counts into a map of advice seeker IDs to call counts. */
+  default Map<String, Integer> getVideoCallCountsByUser() {
+    return aggregateVideoCallCountsByUser().stream()
+        .collect(Collectors.toMap(UserEventCount::getId, UserEventCount::getCount));
+  }
+
+  /** Aggregates the number of bookings created, grouped by advice seeker. */
+  @Aggregation(
+      pipeline = {
+        "{ '$match': { 'eventType': 'BOOKING_CREATED', 'metaData.adviceSeekerId': { '$ne': null } } }",
+        "{ '$group': { '_id': '$metaData.adviceSeekerId', 'count': { '$sum': 1 } } }"
+      })
+  List<UserEventCount> aggregateBookingCountsByUser();
+
+  /** Converts the aggregated booking counts into a map of advice seeker IDs to booking counts. */
+  default Map<String, Integer> getBookingCountsByUser() {
+    return aggregateBookingCountsByUser().stream()
+        .collect(Collectors.toMap(UserEventCount::getId, UserEventCount::getCount));
+  }
+
+  /** Aggregates the latest archive date per session. */
+  @Aggregation(
+      pipeline = {
+        "{ '$match': { 'eventType': 'ARCHIVE_SESSION' } }",
+        "{ '$sort': { 'timestamp': -1 } }",
+        "{ '$group': {'_id': '$sessionId', 'endDate': { '$first': '$metaData.endDate' } } }"
+      })
+  List<SessionArchiveDate> aggregateLatestArchiveDateBySession();
+
+  /** Converts the aggregated archive dates into a map of session IDs to archive end dates. */
+  default Map<Long, String> getLatestArchiveDateBySession() {
+    return aggregateLatestArchiveDateBySession().stream()
+        .collect(Collectors.toMap(SessionArchiveDate::getId, SessionArchiveDate::getEndDate));
+  }
+
+  /** Aggregates the account deletion date per user. */
+  @Aggregation(
+      pipeline = {
+        "{ '$match': { 'eventType': 'DELETE_ACCOUNT' } }",
+        "{ '$group': { '_id': '$user._id', 'deleteDate': { '$first': '$metaData.deleteDate' } } }"
+      })
+  List<UserDeleteDate> aggregateDeleteDateByUser();
+
+  /** Converts the aggregated deletion dates into a map of user IDs to deletion dates. */
+  default Map<String, String> getDeleteDateByUser() {
+    return aggregateDeleteDateByUser().stream()
+        .collect(Collectors.toMap(UserDeleteDate::getId, UserDeleteDate::getDeleteDate));
+  }
 }
