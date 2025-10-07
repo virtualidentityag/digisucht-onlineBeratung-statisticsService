@@ -38,7 +38,13 @@ class RegistrationStatisticsDTOConverterTest {
     RegistrationStatisticsResponseDTO result =
         registrationStatisticsDTOConverter.convertStatisticsEvent(
             registrationEvent,
-            new StatisticContainer(Map.of(), Map.of(), Map.of(), Map.of(), Map.of()));
+            StatisticContainer.builder()
+                .archiveDateBySession(Map.of())
+                .deleteDateByUser(Map.of())
+                .messageCountsByUser(Map.of())
+                .videoCallCountsByUser(Map.of())
+                .bookingCountsByUser(Map.of())
+                .build());
 
     // then
     assertThat(result.getUserId(), is(ASKER_ID));
@@ -63,7 +69,13 @@ class RegistrationStatisticsDTOConverterTest {
     RegistrationStatisticsResponseDTO result =
         registrationStatisticsDTOConverter.convertStatisticsEvent(
             registrationEvent,
-            new StatisticContainer(Map.of(), Map.of(), Map.of(), Map.of(), Map.of()));
+            StatisticContainer.builder()
+                .archiveDateBySession(Map.of())
+                .deleteDateByUser(Map.of())
+                .messageCountsByUser(Map.of())
+                .videoCallCountsByUser(Map.of())
+                .bookingCountsByUser(Map.of())
+                .build());
 
     // then
     assertThat(result.getEndDate(), is(nullValue()));
@@ -80,8 +92,13 @@ class RegistrationStatisticsDTOConverterTest {
     RegistrationStatisticsResponseDTO result =
         registrationStatisticsDTOConverter.convertStatisticsEvent(
             registrationEvent,
-            new StatisticContainer(archiveDates, Map.of(), Map.of(), Map.of(), Map.of()));
-
+            StatisticContainer.builder()
+                .archiveDateBySession(archiveDates)
+                .deleteDateByUser(Map.of())
+                .messageCountsByUser(Map.of())
+                .videoCallCountsByUser(Map.of())
+                .bookingCountsByUser(Map.of())
+                .build());
     // then
     assertThat(result.getEndDate(), is("2 end date for session 1"));
   }
@@ -98,7 +115,13 @@ class RegistrationStatisticsDTOConverterTest {
     RegistrationStatisticsResponseDTO result =
         registrationStatisticsDTOConverter.convertStatisticsEvent(
             registrationEvent,
-            new StatisticContainer(archiveDates, deleteDates, Map.of(), Map.of(), Map.of()));
+            StatisticContainer.builder()
+                .archiveDateBySession(archiveDates)
+                .deleteDateByUser(deleteDates)
+                .messageCountsByUser(Map.of())
+                .videoCallCountsByUser(Map.of())
+                .bookingCountsByUser(Map.of())
+                .build());
 
     // then
     assertThat(result.getEndDate(), is("delete date for user 1"));
@@ -115,7 +138,13 @@ class RegistrationStatisticsDTOConverterTest {
     RegistrationStatisticsResponseDTO result =
         registrationStatisticsDTOConverter.convertStatisticsEvent(
             registrationEvent,
-            new StatisticContainer(archiveDates, Map.of(), Map.of(), Map.of(), Map.of()));
+            StatisticContainer.builder()
+                .archiveDateBySession(archiveDates)
+                .deleteDateByUser(Map.of())
+                .messageCountsByUser(Map.of())
+                .videoCallCountsByUser(Map.of())
+                .bookingCountsByUser(Map.of())
+                .build());
 
     // then
     assertThat(result.getEndDate(), is("end date for session 2"));
@@ -132,7 +161,13 @@ class RegistrationStatisticsDTOConverterTest {
     RegistrationStatisticsResponseDTO result =
         registrationStatisticsDTOConverter.convertStatisticsEvent(
             registrationEvent,
-            new StatisticContainer(archiveDates, Map.of(), Map.of(), Map.of(), Map.of()));
+            StatisticContainer.builder()
+                .archiveDateBySession(archiveDates)
+                .deleteDateByUser(Map.of())
+                .messageCountsByUser(Map.of())
+                .videoCallCountsByUser(Map.of())
+                .bookingCountsByUser(Map.of())
+                .build());
 
     // then
     assertThat(result.getEndDate(), is(nullValue()));

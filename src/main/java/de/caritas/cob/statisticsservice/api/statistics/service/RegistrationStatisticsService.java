@@ -33,12 +33,14 @@ public class RegistrationStatisticsService {
 
   public RegistrationStatisticsListResponseDTO fetchRegistrationStatisticsData() {
     StatisticContainer statisticContainer =
-        new StatisticContainer(
-            getArchiveDateByUser(),
-            getDeleteDateByUser(),
-            getMessageCountsByUser(),
-            getBookingCountsByUser(),
-            getVideoCallCountsByUser());
+        StatisticContainer.builder()
+            .archiveDateBySession(getArchiveDateByUser())
+            .deleteDateByUser(getDeleteDateByUser())
+            .messageCountsByUser(getMessageCountsByUser())
+            .videoCallCountsByUser(getVideoCallCountsByUser())
+            .bookingCountsByUser(getBookingCountsByUser())
+            .build();
+
     return buildResponseDTO(statisticContainer);
   }
 
