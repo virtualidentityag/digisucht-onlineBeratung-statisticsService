@@ -6,6 +6,7 @@ import static de.caritas.cob.statisticsservice.api.testhelper.TestConstants.CONS
 import static de.caritas.cob.statisticsservice.api.testhelper.TestConstants.TENANT_ID;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -17,12 +18,13 @@ import de.caritas.cob.statisticsservice.api.model.EventType;
 import de.caritas.cob.statisticsservice.api.model.UserRole;
 import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.Agency;
 import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.ConsultingType;
-import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.StatisticContainer;
 import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.StatisticsEvent;
 import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.User;
 import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.meta.RegistrationMetaData;
 import de.caritas.cob.statisticsservice.api.statistics.repository.StatisticsEventRepository;
 import de.caritas.cob.statisticsservice.api.statistics.repository.StatisticsEventTenantAwareRepository;
+import de.caritas.cob.statisticsservice.api.statistics.repository.projection.UserEventStats;
+import de.caritas.cob.statisticsservice.api.statistics.service.dto.StatisticContainer;
 import de.caritas.cob.statisticsservice.api.tenant.TenantContext;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -57,9 +59,9 @@ class RegistrationStatisticsServiceTest {
 
     // then
     verify(statisticsEventRepository).getAllRegistrationStatistics();
-    verify(statisticsEventRepository).getMessageCountsByUser();
-    verify(statisticsEventRepository).getBookingCountsByUser();
-    verify(statisticsEventRepository).getVideoCallCountsByUser();
+    verify(statisticsEventRepository).getMessageStatsByUser();
+    verify(statisticsEventRepository).getBookingStatsByUser();
+    verify(statisticsEventRepository).getVideoCallStatsByUser();
     verify(statisticsEventRepository).getLatestArchiveDateBySession();
     verify(statisticsEventRepository).getDeleteDateByUser();
     verifyNoMoreInteractions(statisticsEventRepository);
@@ -79,9 +81,9 @@ class RegistrationStatisticsServiceTest {
 
     // then
     verify(statisticsEventTenantAwareRepository).getAllRegistrationStatistics(TENANT_ID);
-    verify(statisticsEventTenantAwareRepository).getMessageCountsByUser(TENANT_ID);
-    verify(statisticsEventTenantAwareRepository).getBookingCountsByUser(TENANT_ID);
-    verify(statisticsEventTenantAwareRepository).getVideoCallCountsByUser(TENANT_ID);
+    verify(statisticsEventTenantAwareRepository).getMessageStatsByUser(TENANT_ID);
+    verify(statisticsEventTenantAwareRepository).getBookingStatsByUser(TENANT_ID);
+    verify(statisticsEventTenantAwareRepository).getVideoCallStatsByUser(TENANT_ID);
     verify(statisticsEventTenantAwareRepository).getLatestArchiveDateBySession(TENANT_ID);
     verify(statisticsEventTenantAwareRepository).getDeleteDateByUser(TENANT_ID);
     verifyNoMoreInteractions(statisticsEventRepository);
@@ -151,6 +153,120 @@ class RegistrationStatisticsServiceTest {
         .convertStatisticsEvent(any(StatisticsEvent.class), any(StatisticContainer.class));
 
     assertThat(result.getRegistrationStatistics().get(0).getEndDate(), is("end date delete 1"));
+  }
+
+  @Test
+  void fetchRegistrationStatisticsData_Should_addMessageCount_When_MessageStatsAreAvailable() {
+    // given
+    givenRegistrationStatistics();
+    givenMessageStats();
+
+    // when
+    var result = registrationStatisticsService.fetchRegistrationStatisticsData();
+
+    // then
+    verify(registrationStatisticsDTOConverter)
+        .convertStatisticsEvent(any(StatisticsEvent.class), any(StatisticContainer.class));
+
+    assertThat(result.getRegistrationStatistics().get(0).getConsultantMessagesCount(), is(5));
+  }
+
+  @Test
+  void fetchRegistrationStatisticsData_Should_addVideoCallCount_When_VideoCallStatsAreAvailable() {
+    // given
+    givenRegistrationStatistics();
+    givenVideoCallStats();
+
+    // when
+    var result = registrationStatisticsService.fetchRegistrationStatisticsData();
+
+    // then
+    verify(registrationStatisticsDTOConverter)
+        .convertStatisticsEvent(any(StatisticsEvent.class), any(StatisticContainer.class));
+
+    assertThat(result.getRegistrationStatistics().get(0).getAttendedVideoCallsCount(), is(3));
+  }
+
+  @Test
+  void fetchRegistrationStatisticsData_Should_addBookingCount_When_BookingStatsAreAvailable() {
+    // given
+    givenRegistrationStatistics();
+    givenBookingStats();
+
+    // when
+    var result = registrationStatisticsService.fetchRegistrationStatisticsData();
+
+    // then
+    verify(registrationStatisticsDTOConverter)
+        .convertStatisticsEvent(any(StatisticsEvent.class), any(StatisticContainer.class));
+
+    assertThat(result.getRegistrationStatistics().get(0).getAppointmentsBookedCount(), is(2));
+  }
+
+  @Test
+  void fetchRegistrationStatisticsData_Should_addLastActivityDate_When_MultipleStatsAreAvailable() {
+    // given
+    givenRegistrationStatistics();
+
+    Instant messageDate = Instant.parse("2021-05-08T10:30:20Z");
+    Instant videoCallDate = Instant.parse("2021-05-25T15:00:00Z"); // ← MAX!
+    Instant bookingDate = Instant.parse("2021-05-10T12:00:00Z");
+
+    Map<String, UserEventStats> messageStats = Map.of(ASKER_ID, new UserEventStats(5, messageDate));
+    Map<String, UserEventStats> videoCallStats =
+        Map.of(ASKER_ID, new UserEventStats(3, videoCallDate));
+    Map<String, UserEventStats> bookingStats = Map.of(ASKER_ID, new UserEventStats(2, bookingDate));
+
+    when(statisticsEventRepository.getMessageStatsByUser()).thenReturn(messageStats);
+    when(statisticsEventRepository.getVideoCallStatsByUser()).thenReturn(videoCallStats);
+    when(statisticsEventRepository.getBookingStatsByUser()).thenReturn(bookingStats);
+
+    // when
+    var result = registrationStatisticsService.fetchRegistrationStatisticsData();
+
+    // then
+    assertThat(
+        result.getRegistrationStatistics().get(0).getLastActivityDate(),
+        is("2021-05-25T15:00:00Z")); // Video Call ist das neueste
+  }
+
+  @Test
+  void fetchRegistrationStatisticsData_Should_notAddCounts_When_NoStatsAreAvailable() {
+    // given
+    givenRegistrationStatistics();
+    when(statisticsEventRepository.getMessageStatsByUser()).thenReturn(Map.of());
+    when(statisticsEventRepository.getVideoCallStatsByUser()).thenReturn(Map.of());
+    when(statisticsEventRepository.getBookingStatsByUser()).thenReturn(Map.of());
+
+    // when
+    var result = registrationStatisticsService.fetchRegistrationStatisticsData();
+
+    // then
+    assertThat(
+        result.getRegistrationStatistics().get(0).getConsultantMessagesCount(), is(nullValue()));
+    assertThat(
+        result.getRegistrationStatistics().get(0).getAttendedVideoCallsCount(), is(nullValue()));
+    assertThat(
+        result.getRegistrationStatistics().get(0).getAppointmentsBookedCount(), is(nullValue()));
+    assertThat(result.getRegistrationStatistics().get(0).getLastActivityDate(), is(nullValue()));
+  }
+
+  private void givenMessageStats() {
+    Map<String, UserEventStats> messageStats =
+        Map.of(ASKER_ID, new UserEventStats(5, Instant.parse("2021-05-08T10:30:20Z")));
+    when(statisticsEventRepository.getMessageStatsByUser()).thenReturn(messageStats);
+  }
+
+  private void givenVideoCallStats() {
+    Map<String, UserEventStats> videoCallStats =
+        Map.of(ASKER_ID, new UserEventStats(3, Instant.parse("2021-05-25T15:00:00Z")));
+    when(statisticsEventRepository.getVideoCallStatsByUser()).thenReturn(videoCallStats);
+  }
+
+  private void givenBookingStats() {
+    Map<String, UserEventStats> bookingStats =
+        Map.of(ASKER_ID, new UserEventStats(2, Instant.parse("2021-05-10T12:00:00Z")));
+    when(statisticsEventRepository.getBookingStatsByUser()).thenReturn(bookingStats);
   }
 
   private void givenRegistrationStatistics() {

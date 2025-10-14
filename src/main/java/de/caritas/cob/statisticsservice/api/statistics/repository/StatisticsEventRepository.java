@@ -1,9 +1,10 @@
 package de.caritas.cob.statisticsservice.api.statistics.repository;
 
-import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.SessionArchiveDate;
 import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.StatisticsEvent;
-import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.UserDeleteDate;
-import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.UserEventCount;
+import de.caritas.cob.statisticsservice.api.statistics.repository.projection.SessionArchiveDate;
+import de.caritas.cob.statisticsservice.api.statistics.repository.projection.UserDeleteDate;
+import de.caritas.cob.statisticsservice.api.statistics.repository.projection.UserEventAggregation;
+import de.caritas.cob.statisticsservice.api.statistics.repository.projection.UserEventStats;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -115,46 +116,55 @@ public interface StatisticsEventRepository extends MongoRepository<StatisticsEve
   @Query(value = "{'eventType': 'REGISTRATION'}")
   List<StatisticsEvent> getAllRegistrationStatistics();
 
-  /** Aggregates the number of messages sent by consultants, grouped by advice seeker (receiver). */
+  /** Aggregates message statistics (count and last interaction date) per advice seeker. */
   @Aggregation(
       pipeline = {
         "{ '$match': { 'eventType': 'CREATE_MESSAGE', 'user.userRole': 'CONSULTANT', 'metaData.receiverId': { '$ne': null } } }",
-        "{ '$group': { '_id': '$metaData.receiverId', 'count': { '$sum': 1 } } }"
+        "{ '$group': { '_id': '$metaData.receiverId', 'count': { '$sum': 1 }, 'lastInteraction': { '$max': '$timestamp' } } }"
       })
-  List<UserEventCount> aggregateMessageCountsByUser();
+  List<UserEventAggregation> aggregateMessageStatsByUser();
 
-  /** Converts the aggregated message counts into a map of advice seeker IDs to message counts. */
-  default Map<String, Integer> getMessageCountsByUser() {
-    return aggregateMessageCountsByUser().stream()
-        .collect(Collectors.toMap(UserEventCount::getId, UserEventCount::getCount));
+  /** Returns message statistics as a map of advice seeker IDs to stats. */
+  default Map<String, UserEventStats> getMessageStatsByUser() {
+    return aggregateMessageStatsByUser().stream()
+        .collect(
+            Collectors.toMap(
+                UserEventAggregation::getId,
+                event -> new UserEventStats(event.getCount(), event.getLastInteraction())));
   }
 
-  /** Aggregates the number of video calls started, grouped by advice seeker. */
+  /** Aggregates video call statistics (count and last interaction date) per advice seeker. */
   @Aggregation(
       pipeline = {
         "{ '$match': { 'eventType': 'START_VIDEO_CALL', 'metaData.adviceSeekerId': { '$ne': null } } }",
-        "{ '$group': { '_id': '$metaData.adviceSeekerId', 'count': { '$sum': 1 } } }"
+        "{ '$group': { '_id': '$metaData.adviceSeekerId', 'count': { '$sum': 1 }, 'lastInteraction': { '$max': '$timestamp' } } }"
       })
-  List<UserEventCount> aggregateVideoCallCountsByUser();
+  List<UserEventAggregation> aggregateVideoCallStatsByUser();
 
-  /** Converts the aggregated video call counts into a map of advice seeker IDs to call counts. */
-  default Map<String, Integer> getVideoCallCountsByUser() {
-    return aggregateVideoCallCountsByUser().stream()
-        .collect(Collectors.toMap(UserEventCount::getId, UserEventCount::getCount));
+  /** Returns video call statistics as a map of advice seeker IDs to stats. */
+  default Map<String, UserEventStats> getVideoCallStatsByUser() {
+    return aggregateVideoCallStatsByUser().stream()
+        .collect(
+            Collectors.toMap(
+                UserEventAggregation::getId,
+                event -> new UserEventStats(event.getCount(), event.getLastInteraction())));
   }
 
-  /** Aggregates the number of bookings created, grouped by advice seeker. */
+  /** Aggregates booking statistics (count and last interaction date) per advice seeker. */
   @Aggregation(
       pipeline = {
         "{ '$match': { 'eventType': 'BOOKING_CREATED', 'metaData.adviceSeekerId': { '$ne': null } } }",
-        "{ '$group': { '_id': '$metaData.adviceSeekerId', 'count': { '$sum': 1 } } }"
+        "{ '$group': { '_id': '$metaData.adviceSeekerId', 'count': { '$sum': 1 }, 'lastInteraction': { '$max': '$timestamp' } } }"
       })
-  List<UserEventCount> aggregateBookingCountsByUser();
+  List<UserEventAggregation> aggregateBookingStatsByUser();
 
-  /** Converts the aggregated booking counts into a map of advice seeker IDs to booking counts. */
-  default Map<String, Integer> getBookingCountsByUser() {
-    return aggregateBookingCountsByUser().stream()
-        .collect(Collectors.toMap(UserEventCount::getId, UserEventCount::getCount));
+  /** Returns booking statistics as a map of advice seeker IDs to stats. */
+  default Map<String, UserEventStats> getBookingStatsByUser() {
+    return aggregateBookingStatsByUser().stream()
+        .collect(
+            Collectors.toMap(
+                UserEventAggregation::getId,
+                event -> new UserEventStats(event.getCount(), event.getLastInteraction())));
   }
 
   /** Aggregates the latest archive date per session. */
@@ -166,7 +176,7 @@ public interface StatisticsEventRepository extends MongoRepository<StatisticsEve
       })
   List<SessionArchiveDate> aggregateLatestArchiveDateBySession();
 
-  /** Converts the aggregated archive dates into a map of session IDs to archive end dates. */
+  /** Returns archive dates as a map of session IDs to end dates. */
   default Map<Long, String> getLatestArchiveDateBySession() {
     return aggregateLatestArchiveDateBySession().stream()
         .collect(Collectors.toMap(SessionArchiveDate::getId, SessionArchiveDate::getEndDate));
@@ -180,7 +190,7 @@ public interface StatisticsEventRepository extends MongoRepository<StatisticsEve
       })
   List<UserDeleteDate> aggregateDeleteDateByUser();
 
-  /** Converts the aggregated deletion dates into a map of user IDs to deletion dates. */
+  /** Returns deletion dates as a map of user IDs to deletion dates. */
   default Map<String, String> getDeleteDateByUser() {
     return aggregateDeleteDateByUser().stream()
         .collect(Collectors.toMap(UserDeleteDate::getId, UserDeleteDate::getDeleteDate));

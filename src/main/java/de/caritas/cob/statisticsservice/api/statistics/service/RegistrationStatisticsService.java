@@ -2,10 +2,11 @@ package de.caritas.cob.statisticsservice.api.statistics.service;
 
 import de.caritas.cob.statisticsservice.api.helper.RegistrationStatisticsDTOConverter;
 import de.caritas.cob.statisticsservice.api.model.RegistrationStatisticsListResponseDTO;
-import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.StatisticContainer;
 import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.StatisticsEvent;
 import de.caritas.cob.statisticsservice.api.statistics.repository.StatisticsEventRepository;
 import de.caritas.cob.statisticsservice.api.statistics.repository.StatisticsEventTenantAwareRepository;
+import de.caritas.cob.statisticsservice.api.statistics.repository.projection.UserEventStats;
+import de.caritas.cob.statisticsservice.api.statistics.service.dto.StatisticContainer;
 import de.caritas.cob.statisticsservice.api.tenant.TenantContext;
 import java.util.List;
 import java.util.Map;
@@ -36,9 +37,9 @@ public class RegistrationStatisticsService {
         StatisticContainer.builder()
             .archiveDateBySession(getArchiveDateByUser())
             .deleteDateByUser(getDeleteDateByUser())
-            .messageCountsByUser(getMessageCountsByUser())
-            .videoCallCountsByUser(getVideoCallCountsByUser())
-            .bookingCountsByUser(getBookingCountsByUser())
+            .messageStatsByUser(getMessageStatsByUser())
+            .videoCallStatsByUser(getVideoCallStatsByUser())
+            .bookingStatsByUser(getBookingStatsByUser())
             .build();
 
     return buildResponseDTO(statisticContainer);
@@ -74,29 +75,29 @@ public class RegistrationStatisticsService {
     }
   }
 
-  private Map<String, Integer> getMessageCountsByUser() {
+  private Map<String, UserEventStats> getMessageStatsByUser() {
     if (isAllTenantAccessContext()) {
-      return statisticsEventRepository.getMessageCountsByUser();
+      return statisticsEventRepository.getMessageStatsByUser();
     } else {
-      return statisticsEventTenantAwareRepository.getMessageCountsByUser(
+      return statisticsEventTenantAwareRepository.getMessageStatsByUser(
           TenantContext.getCurrentTenant());
     }
   }
 
-  private Map<String, Integer> getBookingCountsByUser() {
+  private Map<String, UserEventStats> getBookingStatsByUser() {
     if (isAllTenantAccessContext()) {
-      return statisticsEventRepository.getBookingCountsByUser();
+      return statisticsEventRepository.getBookingStatsByUser();
     } else {
-      return statisticsEventTenantAwareRepository.getBookingCountsByUser(
+      return statisticsEventTenantAwareRepository.getBookingStatsByUser(
           TenantContext.getCurrentTenant());
     }
   }
 
-  private Map<String, Integer> getVideoCallCountsByUser() {
+  private Map<String, UserEventStats> getVideoCallStatsByUser() {
     if (isAllTenantAccessContext()) {
-      return statisticsEventRepository.getVideoCallCountsByUser();
+      return statisticsEventRepository.getVideoCallStatsByUser();
     } else {
-      return statisticsEventTenantAwareRepository.getVideoCallCountsByUser(
+      return statisticsEventTenantAwareRepository.getVideoCallStatsByUser(
           TenantContext.getCurrentTenant());
     }
   }

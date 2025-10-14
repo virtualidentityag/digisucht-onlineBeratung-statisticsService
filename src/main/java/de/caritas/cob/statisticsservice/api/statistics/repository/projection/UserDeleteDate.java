@@ -1,4 +1,4 @@
-package de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent;
+package de.caritas.cob.statisticsservice.api.statistics.repository.projection;
 
 import lombok.Data;
 

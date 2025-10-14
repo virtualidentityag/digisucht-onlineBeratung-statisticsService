@@ -1,9 +1,10 @@
 package de.caritas.cob.statisticsservice.api.statistics.repository;
 
-import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.SessionArchiveDate;
 import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.StatisticsEvent;
-import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.UserDeleteDate;
-import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.UserEventCount;
+import de.caritas.cob.statisticsservice.api.statistics.repository.projection.SessionArchiveDate;
+import de.caritas.cob.statisticsservice.api.statistics.repository.projection.UserDeleteDate;
+import de.caritas.cob.statisticsservice.api.statistics.repository.projection.UserEventAggregation;
+import de.caritas.cob.statisticsservice.api.statistics.repository.projection.UserEventStats;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -18,46 +19,64 @@ public interface StatisticsEventTenantAwareRepository
   @Query(value = "{'eventType': 'REGISTRATION', 'metaData.tenantId': ?0}")
   List<StatisticsEvent> getAllRegistrationStatistics(Long tenantId);
 
-  /** Aggregates the number of messages sent by consultants, grouped by advice seeker (receiver). */
+  /**
+   * Aggregates message statistics (count and last interaction date) per advice seeker for a
+   * specific tenant.
+   */
   @Aggregation(
       pipeline = {
         "{ '$match': { 'eventType': 'CREATE_MESSAGE', 'user.userRole': 'CONSULTANT', 'metaData.receiverId': { '$ne': null }, 'metaData.tenantId': ?0 } }",
-        "{ '$group': { '_id': '$metaData.receiverId', 'count': { '$sum': 1 } } }"
+        "{ '$group': { '_id': '$metaData.receiverId', 'count': { '$sum': 1 }, 'lastInteraction': { '$max': '$timestamp' } } }"
       })
-  List<UserEventCount> aggregateMessageCountsByUser(Long currentTenant);
+  List<UserEventAggregation> aggregateMessageStatsByUser(Long tenantId);
 
-  /** Converts the aggregated message counts into a map of advice seeker IDs to message counts. */
-  default Map<String, Integer> getMessageCountsByUser(Long currentTenant) {
-    return aggregateMessageCountsByUser(currentTenant).stream()
-        .collect(Collectors.toMap(UserEventCount::getId, UserEventCount::getCount));
+  /** Returns message statistics as a map of advice seeker IDs to stats for a specific tenant. */
+  default Map<String, UserEventStats> getMessageStatsByUser(Long tenantId) {
+    return aggregateMessageStatsByUser(tenantId).stream()
+        .collect(
+            Collectors.toMap(
+                UserEventAggregation::getId,
+                event -> new UserEventStats(event.getCount(), event.getLastInteraction())));
   }
 
-  /** Aggregates the number of video calls started, grouped by advice seeker. */
+  /**
+   * Aggregates video call statistics (count and last interaction date) per advice seeker for a
+   * specific tenant.
+   */
   @Aggregation(
       pipeline = {
         "{ '$match': { 'eventType': 'START_VIDEO_CALL', 'metaData.adviceSeekerId': { '$ne': null }, 'metaData.tenantId': ?0 } }",
-        "{ '$group': { '_id': '$metaData.adviceSeekerId', 'count': { '$sum': 1 } } }"
+        "{ '$group': { '_id': '$metaData.adviceSeekerId', 'count': { '$sum': 1 }, 'lastInteraction': { '$max': '$timestamp' } } }"
       })
-  List<UserEventCount> aggregateVideoCallCountsByUser(Long currentTenant);
+  List<UserEventAggregation> aggregateVideoCallStatsByUser(Long tenantId);
 
-  /** Converts the aggregated video call counts into a map of advice seeker IDs to call counts. */
-  default Map<String, Integer> getVideoCallCountsByUser(Long currentTenant) {
-    return aggregateVideoCallCountsByUser(currentTenant).stream()
-        .collect(Collectors.toMap(UserEventCount::getId, UserEventCount::getCount));
+  /** Returns video call statistics as a map of advice seeker IDs to stats for a specific tenant. */
+  default Map<String, UserEventStats> getVideoCallStatsByUser(Long tenantId) {
+    return aggregateVideoCallStatsByUser(tenantId).stream()
+        .collect(
+            Collectors.toMap(
+                UserEventAggregation::getId,
+                event -> new UserEventStats(event.getCount(), event.getLastInteraction())));
   }
 
-  /** Aggregates the number of bookings created, grouped by advice seeker. */
+  /**
+   * Aggregates booking statistics (count and last interaction date) per advice seeker for a
+   * specific tenant.
+   */
   @Aggregation(
       pipeline = {
         "{ '$match': { 'eventType': 'BOOKING_CREATED', 'metaData.adviceSeekerId': { '$ne': null }, 'metaData.tenantId': ?0  } }",
-        "{ '$group': { '_id': '$metaData.adviceSeekerId', 'count': { '$sum': 1 } } }"
+        "{ '$group': { '_id': '$metaData.adviceSeekerId', 'count': { '$sum': 1 }, 'lastInteraction': { '$max': '$timestamp' }} }"
       })
-  List<UserEventCount> aggregateBookingCountsByUser(Long currentTenant);
+  List<UserEventAggregation> aggregateBookingStatsByUser(Long tenantId);
 
-  /** Converts the aggregated booking counts into a map of advice seeker IDs to booking counts. */
-  default Map<String, Integer> getBookingCountsByUser(Long currentTenant) {
-    return aggregateBookingCountsByUser(currentTenant).stream()
-        .collect(Collectors.toMap(UserEventCount::getId, UserEventCount::getCount));
+  /** Returns booking statistics as a map of advice seeker IDs to stats for a specific tenant. */
+  default Map<String, UserEventStats> getBookingStatsByUser(Long tenantId) {
+    return aggregateBookingStatsByUser(tenantId).stream()
+        .collect(
+            Collectors.toMap(
+                UserEventAggregation::getId,
+                event -> new UserEventStats(event.getCount(), event.getLastInteraction())));
   }
 
   /** Aggregates the latest archive date per session for a specific tenant. */
@@ -69,7 +88,7 @@ public interface StatisticsEventTenantAwareRepository
       })
   List<SessionArchiveDate> aggregateLatestArchiveDateBySession(Long tenantId);
 
-  /** Converts the aggregated archive dates into a map of session IDs to archive end dates. */
+  /** Returns archive dates as a map of session IDs to end dates for a specific tenant. */
   default Map<Long, String> getLatestArchiveDateBySession(Long tenantId) {
     return aggregateLatestArchiveDateBySession(tenantId).stream()
         .collect(Collectors.toMap(SessionArchiveDate::getId, SessionArchiveDate::getEndDate));
@@ -83,7 +102,7 @@ public interface StatisticsEventTenantAwareRepository
       })
   List<UserDeleteDate> aggregateDeleteDateByUser(Long tenantId);
 
-  /** Converts the aggregated deletion dates into a map of user IDs to deletion dates. */
+  /** Returns deletion dates as a map of user IDs to deletion dates for a specific tenant. */
   default Map<String, String> getDeleteDateByUser(Long tenantId) {
     return aggregateDeleteDateByUser(tenantId).stream()
         .collect(Collectors.toMap(UserDeleteDate::getId, UserDeleteDate::getDeleteDate));

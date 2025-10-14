@@ -12,10 +12,11 @@ import de.caritas.cob.statisticsservice.api.model.RegistrationStatisticsResponse
 import de.caritas.cob.statisticsservice.api.model.UserRole;
 import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.Agency;
 import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.ConsultingType;
-import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.StatisticContainer;
 import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.StatisticsEvent;
 import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.User;
 import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.meta.RegistrationMetaData;
+import de.caritas.cob.statisticsservice.api.statistics.repository.projection.UserEventStats;
+import de.caritas.cob.statisticsservice.api.statistics.service.dto.StatisticContainer;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -41,9 +42,9 @@ class RegistrationStatisticsDTOConverterTest {
             StatisticContainer.builder()
                 .archiveDateBySession(Map.of())
                 .deleteDateByUser(Map.of())
-                .messageCountsByUser(Map.of())
-                .videoCallCountsByUser(Map.of())
-                .bookingCountsByUser(Map.of())
+                .messageStatsByUser(Map.of())
+                .videoCallStatsByUser(Map.of())
+                .bookingStatsByUser(Map.of())
                 .build());
 
     // then
@@ -72,9 +73,9 @@ class RegistrationStatisticsDTOConverterTest {
             StatisticContainer.builder()
                 .archiveDateBySession(Map.of())
                 .deleteDateByUser(Map.of())
-                .messageCountsByUser(Map.of())
-                .videoCallCountsByUser(Map.of())
-                .bookingCountsByUser(Map.of())
+                .messageStatsByUser(Map.of())
+                .videoCallStatsByUser(Map.of())
+                .bookingStatsByUser(Map.of())
                 .build());
 
     // then
@@ -95,9 +96,9 @@ class RegistrationStatisticsDTOConverterTest {
             StatisticContainer.builder()
                 .archiveDateBySession(archiveDates)
                 .deleteDateByUser(Map.of())
-                .messageCountsByUser(Map.of())
-                .videoCallCountsByUser(Map.of())
-                .bookingCountsByUser(Map.of())
+                .messageStatsByUser(Map.of())
+                .videoCallStatsByUser(Map.of())
+                .bookingStatsByUser(Map.of())
                 .build());
     // then
     assertThat(result.getEndDate(), is("2 end date for session 1"));
@@ -118,9 +119,9 @@ class RegistrationStatisticsDTOConverterTest {
             StatisticContainer.builder()
                 .archiveDateBySession(archiveDates)
                 .deleteDateByUser(deleteDates)
-                .messageCountsByUser(Map.of())
-                .videoCallCountsByUser(Map.of())
-                .bookingCountsByUser(Map.of())
+                .messageStatsByUser(Map.of())
+                .videoCallStatsByUser(Map.of())
+                .bookingStatsByUser(Map.of())
                 .build());
 
     // then
@@ -141,9 +142,9 @@ class RegistrationStatisticsDTOConverterTest {
             StatisticContainer.builder()
                 .archiveDateBySession(archiveDates)
                 .deleteDateByUser(Map.of())
-                .messageCountsByUser(Map.of())
-                .videoCallCountsByUser(Map.of())
-                .bookingCountsByUser(Map.of())
+                .messageStatsByUser(Map.of())
+                .videoCallStatsByUser(Map.of())
+                .bookingStatsByUser(Map.of())
                 .build());
 
     // then
@@ -164,13 +165,113 @@ class RegistrationStatisticsDTOConverterTest {
             StatisticContainer.builder()
                 .archiveDateBySession(archiveDates)
                 .deleteDateByUser(Map.of())
-                .messageCountsByUser(Map.of())
-                .videoCallCountsByUser(Map.of())
-                .bookingCountsByUser(Map.of())
+                .messageStatsByUser(Map.of())
+                .videoCallStatsByUser(Map.of())
+                .bookingStatsByUser(Map.of())
                 .build());
 
     // then
     assertThat(result.getEndDate(), is(nullValue()));
+  }
+
+  @Test
+  void convertStatisticsEvent_Should_setLastActivityDate_When_userHasInteractions() {
+    // given
+    StatisticsEvent registrationEvent = givenValidRegistrationStatisticEvent(1L);
+
+    Instant messageDate = Instant.parse("2021-05-08T10:30:20Z");
+    Instant videoCallDate = Instant.parse("2021-05-25T15:00:00Z"); // MAX!
+    Instant bookingDate = Instant.parse("2021-05-10T12:00:00Z");
+
+    Map<String, UserEventStats> messageStats = Map.of(ASKER_ID, new UserEventStats(3, messageDate));
+    Map<String, UserEventStats> videoCallStats =
+        Map.of(ASKER_ID, new UserEventStats(2, videoCallDate));
+    Map<String, UserEventStats> bookingStats = Map.of(ASKER_ID, new UserEventStats(1, bookingDate));
+
+    // when
+    RegistrationStatisticsResponseDTO result =
+        registrationStatisticsDTOConverter.convertStatisticsEvent(
+            registrationEvent,
+            StatisticContainer.builder()
+                .archiveDateBySession(Map.of())
+                .deleteDateByUser(Map.of())
+                .messageStatsByUser(messageStats)
+                .videoCallStatsByUser(videoCallStats)
+                .bookingStatsByUser(bookingStats)
+                .build());
+
+    // then
+    assertThat(result.getLastActivityDate(), is("2021-05-25T15:00:00Z"));
+  }
+
+  @Test
+  void convertStatisticsEvent_Should_setLastActivityDateToNull_When_userHasNoInteractions() {
+    // given
+    StatisticsEvent registrationEvent = givenValidRegistrationStatisticEvent(1L);
+
+    // when
+    RegistrationStatisticsResponseDTO result =
+        registrationStatisticsDTOConverter.convertStatisticsEvent(
+            registrationEvent,
+            StatisticContainer.builder()
+                .archiveDateBySession(Map.of())
+                .deleteDateByUser(Map.of())
+                .messageStatsByUser(Map.of())
+                .videoCallStatsByUser(Map.of())
+                .bookingStatsByUser(Map.of())
+                .build());
+
+    // then
+    assertThat(result.getLastActivityDate(), is(nullValue()));
+  }
+
+  @Test
+  void convertStatisticsEvent_Should_setLastActivityDate_When_onlyOneInteractionTypeExists() {
+    // given
+    StatisticsEvent registrationEvent = givenValidRegistrationStatisticEvent(1L);
+
+    Instant messageDate = Instant.parse("2021-05-08T10:30:20Z");
+
+    Map<String, UserEventStats> messageStats = Map.of(ASKER_ID, new UserEventStats(5, messageDate));
+
+    // when
+    RegistrationStatisticsResponseDTO result =
+        registrationStatisticsDTOConverter.convertStatisticsEvent(
+            registrationEvent,
+            StatisticContainer.builder()
+                .archiveDateBySession(Map.of())
+                .deleteDateByUser(Map.of())
+                .messageStatsByUser(messageStats)
+                .videoCallStatsByUser(Map.of())
+                .bookingStatsByUser(Map.of())
+                .build());
+
+    // then
+    assertThat(result.getLastActivityDate(), is("2021-05-08T10:30:20Z"));
+  }
+
+  @Test
+  void convertStatisticsEvent_Should_setLastActivityDate_When_otherUserHasInteractions() {
+    // given
+    StatisticsEvent registrationEvent = givenValidRegistrationStatisticEvent(1L);
+
+    Map<String, UserEventStats> messageStats =
+        Map.of("otherUserId", new UserEventStats(3, Instant.parse("2021-05-08T10:30:20Z")));
+
+    // when
+    RegistrationStatisticsResponseDTO result =
+        registrationStatisticsDTOConverter.convertStatisticsEvent(
+            registrationEvent,
+            StatisticContainer.builder()
+                .archiveDateBySession(Map.of())
+                .deleteDateByUser(Map.of())
+                .messageStatsByUser(messageStats)
+                .videoCallStatsByUser(Map.of())
+                .bookingStatsByUser(Map.of())
+                .build());
+
+    // then
+    assertThat(result.getLastActivityDate(), is(nullValue())); // Kein Match für ASKER_ID
   }
 
   private StatisticsEvent givenValidRegistrationStatisticEvent(Long sessionId) {

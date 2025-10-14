@@ -3,10 +3,7 @@ package de.caritas.cob.statisticsservice.api.statistics.repository;
 import static de.caritas.cob.statisticsservice.api.testhelper.TestConstants.CONSULTANT_ID;
 import static de.caritas.cob.statisticsservice.api.testhelper.TestConstants.DATE_FROM;
 import static de.caritas.cob.statisticsservice.api.testhelper.TestConstants.DATE_TO;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.nullValue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,6 +11,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.caritas.cob.statisticsservice.StatisticsServiceApplication;
 import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.StatisticsEvent;
 import de.caritas.cob.statisticsservice.api.statistics.repository.StatisticsEventRepository.Count;
+import de.caritas.cob.statisticsservice.api.statistics.repository.projection.UserEventStats;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -79,9 +77,9 @@ public class StatisticsEventRepositoryIT {
   @Test
   public void calculateNumberOfAssignedSessionsForUser_Should_ReturnCorrectNumberOfSessions() {
     assertThat(
-        statisticsEventRepository.calculateNumberOfAssignedSessionsForUser(
-            CONSULTANT_ID, dateFromConverted, dateToConverted),
-        is(3L));
+            statisticsEventRepository.calculateNumberOfAssignedSessionsForUser(
+                CONSULTANT_ID, dateFromConverted, dateToConverted))
+        .isEqualTo(3L);
   }
 
   @Test
@@ -92,36 +90,36 @@ public class StatisticsEventRepositoryIT {
             .toInstant();
 
     assertThat(
-        statisticsEventRepository.calculateNumbersOfSessionsWhereUserWasActive(
-            CONSULTANT_ID, currentDateTime, currentDateTime),
-        nullValue());
+            statisticsEventRepository.calculateNumbersOfSessionsWhereUserWasActive(
+                CONSULTANT_ID, currentDateTime, currentDateTime))
+        .isNull();
   }
 
   @Test
   public void calculateNumbersOfSessionsWhereUserWasActive_Should_ReturnCorrectNumberOfSessions() {
     assertThat(
-        statisticsEventRepository
-            .calculateNumbersOfSessionsWhereUserWasActive(
-                CONSULTANT_ID, dateFromConverted, dateToConverted)
-            .getTotalCount(),
-        is(5L));
+            statisticsEventRepository
+                .calculateNumbersOfSessionsWhereUserWasActive(
+                    CONSULTANT_ID, dateFromConverted, dateToConverted)
+                .getTotalCount())
+        .isEqualTo(5L);
   }
 
   @Test
   public void calculateNumberOfSentMessagesForUser_Should_ReturnCorrectNumberOfMessages() {
     assertThat(
-        statisticsEventRepository.calculateNumberOfSentMessagesForUser(
-            CONSULTANT_ID, dateFromConverted, dateToConverted),
-        is(4L));
+            statisticsEventRepository.calculateNumberOfSentMessagesForUser(
+                CONSULTANT_ID, dateFromConverted, dateToConverted))
+        .isEqualTo(4L);
   }
 
   @Test
   public void calculateTimeInVideoCallsForUser_Should_ReturnCorrectTime() {
     assertThat(
-        statisticsEventRepository
-            .calculateTimeInVideoCallsForUser(CONSULTANT_ID, dateFromConverted, dateToConverted)
-            .getTotal(),
-        is(1800L));
+            statisticsEventRepository
+                .calculateTimeInVideoCallsForUser(CONSULTANT_ID, dateFromConverted, dateToConverted)
+                .getTotal())
+        .isEqualTo(1800L);
   }
 
   @Test
@@ -131,55 +129,74 @@ public class StatisticsEventRepositoryIT {
             .toInstant();
 
     assertThat(
-        statisticsEventRepository.calculateTimeInVideoCallsForUser(
-            CONSULTANT_ID, currentDateTime, currentDateTime),
-        nullValue());
+            statisticsEventRepository.calculateTimeInVideoCallsForUser(
+                CONSULTANT_ID, currentDateTime, currentDateTime))
+        .isNull();
   }
 
   @Test
   public void getAllRegistrationStatistics_Should_ReturnRegistrationStatistics() {
-
     List<StatisticsEvent> allRegistrationStatistics =
         statisticsEventRepository.getAllRegistrationStatistics();
-    assertThat(allRegistrationStatistics, hasSize(2));
+    assertThat(allRegistrationStatistics).hasSize(2);
   }
 
   @Test
-  public void getMessageCountsByReceiver_Should_ReturnMessageCountsGroupedByUser() {
-    Map<String, Integer> messageCountsByUser = statisticsEventRepository.getMessageCountsByUser();
+  public void getMessageStatsByUser_Should_ReturnStatsGroupedByUser() {
+    Map<String, UserEventStats> messageStatsByUser =
+        statisticsEventRepository.getMessageStatsByUser();
 
-    org.assertj.core.api.Assertions.assertThat(messageCountsByUser)
+    assertThat(messageStatsByUser)
         .hasSize(2)
-        .containsEntry("10", 3)
-        .containsEntry("20", 3);
+        .satisfies(
+            map -> {
+              assertThat(map.get("10").getCount()).isEqualTo(3);
+              assertThat(map.get("10").getLastInteraction()).isEqualTo("2021-05-08T10:30:20.294Z");
+
+              assertThat(map.get("20").getCount()).isEqualTo(3);
+              assertThat(map.get("20").getLastInteraction()).isEqualTo("2021-05-21T09:17:21.00Z");
+            });
   }
 
   @Test
-  public void getVideoCallCountsByUser_Should_ReturnVideoCallCountsGroupedByUser() {
-    Map<String, Integer> videoCallCountsByUser =
-        statisticsEventRepository.getVideoCallCountsByUser();
+  public void getVideoCallStatsByUser_Should_ReturnStatsGroupedByUser() {
+    Map<String, UserEventStats> videoCallStatsByUser =
+        statisticsEventRepository.getVideoCallStatsByUser();
 
-    org.assertj.core.api.Assertions.assertThat(videoCallCountsByUser)
+    assertThat(videoCallStatsByUser)
         .hasSize(2)
-        .containsEntry("10", 2)
-        .containsEntry("20", 2);
+        .satisfies(
+            map -> {
+              assertThat(map.get("10").getCount()).isEqualTo(2);
+              assertThat(map.get("10").getLastInteraction()).isEqualTo("2021-05-25T15:00:00.00Z");
+
+              assertThat(map.get("20").getCount()).isEqualTo(2);
+              assertThat(map.get("20").getLastInteraction()).isEqualTo("2021-06-10T15:00:00.00Z");
+            });
   }
 
   @Test
-  public void getBookingCountsByUser_Should_ReturnBookingCountsGroupedByUser() {
-    Map<String, Integer> bookingCountsByUser = statisticsEventRepository.getBookingCountsByUser();
+  public void getBookingStatsByUser_Should_ReturnStatsGroupedByUser() {
+    Map<String, UserEventStats> bookingStatsByUser =
+        statisticsEventRepository.getBookingStatsByUser();
 
-    org.assertj.core.api.Assertions.assertThat(bookingCountsByUser)
+    assertThat(bookingStatsByUser)
         .hasSize(2)
-        .containsEntry("10", 2)
-        .containsEntry("20", 2);
+        .satisfies(
+            map -> {
+              assertThat(map.get("10").getCount()).isEqualTo(2);
+              assertThat(map.get("10").getLastInteraction()).isEqualTo("2021-05-10T15:00:00.000Z");
+
+              assertThat(map.get("20").getCount()).isEqualTo(2);
+              assertThat(map.get("20").getLastInteraction()).isEqualTo("2021-06-10T15:00:00.000Z");
+            });
   }
 
   @Test
   public void getDeleteDateByUser_Should_ReturnDeleteDateByUser() {
     Map<String, String> deleteDateByUser = statisticsEventRepository.getDeleteDateByUser();
 
-    org.assertj.core.api.Assertions.assertThat(deleteDateByUser)
+    assertThat(deleteDateByUser)
         .hasSize(3)
         .containsEntry("10", "2025-10-10T07:09:56Z")
         .containsEntry("11", "2025-10-11T07:09:56Z")
@@ -191,7 +208,7 @@ public class StatisticsEventRepositoryIT {
       getLatestArchiveSessionEventForSession_Should_ReturnLatestArchiveSessionEventForUser() {
     Map<Long, String> result = statisticsEventRepository.getLatestArchiveDateBySession();
 
-    org.assertj.core.api.Assertions.assertThat(result)
+    assertThat(result)
         .hasSize(2)
         // the latest of the existing events
         .containsEntry(633L, "2022-10-18T10:00:00.00Z")
@@ -207,6 +224,6 @@ public class StatisticsEventRepositoryIT {
         statisticsEventRepository.calculateNumbersOfDoneAppointments(
             CONSULTANT_ID, dateFromConverted, dateToConverted, dateToConverted);
 
-    assertThat(count.getTotalCount(), is(1L));
+    assertThat(count.getTotalCount()).isEqualTo(1L);
   }
 }

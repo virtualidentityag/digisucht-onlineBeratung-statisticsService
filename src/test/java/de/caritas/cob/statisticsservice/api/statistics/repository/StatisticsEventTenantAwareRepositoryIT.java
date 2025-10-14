@@ -1,13 +1,13 @@
 package de.caritas.cob.statisticsservice.api.statistics.repository;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.hasSize;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.caritas.cob.statisticsservice.StatisticsServiceApplication;
 import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.StatisticsEvent;
+import de.caritas.cob.statisticsservice.api.statistics.repository.projection.UserEventStats;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -50,42 +50,52 @@ public class StatisticsEventTenantAwareRepositoryIT {
 
   @Test
   public void getAllRegistrationStatistics_Should_ReturnRegistrationStatisticsFilteredByTenantId() {
-
     List<StatisticsEvent> allRegistrationStatistics =
         statisticsEventTenantAwareRepository.getAllRegistrationStatistics(1L);
-    assertThat(allRegistrationStatistics, hasSize(1));
+    assertThat(allRegistrationStatistics).hasSize(1);
   }
 
   @Test
-  public void
-      getMessageCountsByReceiver_Should_ReturnMessageCountsGroupedByUserFilteredByTenantId() {
-    Map<String, Integer> messageCountsByUser =
-        statisticsEventTenantAwareRepository.getMessageCountsByUser(1L);
+  public void getMessageStatsByUser_Should_ReturnStatsGroupedByUserFilteredByTenantId() {
+    Map<String, UserEventStats> messageStatsByUser =
+        statisticsEventTenantAwareRepository.getMessageStatsByUser(1L);
 
-    org.assertj.core.api.Assertions.assertThat(messageCountsByUser)
+    assertThat(messageStatsByUser)
         .hasSize(1)
-        .containsEntry("10", 3);
+        .satisfies(
+            map -> {
+              assertThat(map.get("10").getCount()).isEqualTo(3);
+              assertThat(map.get("10").getLastInteraction()).isEqualTo("2021-05-08T10:30:20.294Z");
+            });
   }
 
   @Test
-  public void
-      getVideoCallCountsByUser_Should_ReturnVideoCallCountsGroupedByUserFilteredByTenantId() {
-    Map<String, Integer> videoCallCountsByUser =
-        statisticsEventTenantAwareRepository.getVideoCallCountsByUser(1L);
+  public void getVideoCallStatsByUser_Should_ReturnStatsGroupedByUserFilteredByTenantId() {
+    Map<String, UserEventStats> videoCallStatsByUser =
+        statisticsEventTenantAwareRepository.getVideoCallStatsByUser(1L);
 
-    org.assertj.core.api.Assertions.assertThat(videoCallCountsByUser)
+    assertThat(videoCallStatsByUser)
         .hasSize(1)
-        .containsEntry("10", 2);
+        .satisfies(
+            map -> {
+              // Nur User 10 (tenantId=1), neuester Call: 2021-05-25
+              assertThat(map.get("10").getCount()).isEqualTo(2);
+              assertThat(map.get("10").getLastInteraction()).isEqualTo("2021-05-25T15:00:00.00Z");
+            });
   }
 
   @Test
-  public void getBookingCountsByUser_Should_ReturnBookingCountsGroupedByUserFilteredByTenantId() {
-    Map<String, Integer> bookingCountsByUser =
-        statisticsEventTenantAwareRepository.getBookingCountsByUser(1L);
+  public void getBookingStatsByUser_Should_ReturnStatsGroupedByUserFilteredByTenantId() {
+    Map<String, UserEventStats> bookingStatsByUser =
+        statisticsEventTenantAwareRepository.getBookingStatsByUser(1L);
 
-    org.assertj.core.api.Assertions.assertThat(bookingCountsByUser)
+    assertThat(bookingStatsByUser)
         .hasSize(1)
-        .containsEntry("10", 2);
+        .satisfies(
+            map -> {
+              assertThat(map.get("10").getCount()).isEqualTo(2);
+              assertThat(map.get("10").getLastInteraction()).isEqualTo("2021-05-10T15:00:00.000Z");
+            });
   }
 
   @Test
@@ -93,7 +103,7 @@ public class StatisticsEventTenantAwareRepositoryIT {
     Map<String, String> deleteDateByUser =
         statisticsEventTenantAwareRepository.getDeleteDateByUser(1L);
 
-    org.assertj.core.api.Assertions.assertThat(deleteDateByUser)
+    assertThat(deleteDateByUser)
         .hasSize(2)
         .containsEntry("10", "2025-10-10T07:09:56Z")
         .containsEntry("11", "2025-10-11T07:09:56Z");
@@ -105,7 +115,7 @@ public class StatisticsEventTenantAwareRepositoryIT {
     Map<Long, String> result =
         statisticsEventTenantAwareRepository.getLatestArchiveDateBySession(1L);
 
-    org.assertj.core.api.Assertions.assertThat(result)
+    assertThat(result)
         .hasSize(1)
         // the latest of the existing events
         .containsEntry(633L, "2022-10-18T10:00:00.00Z");
