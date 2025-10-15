@@ -128,7 +128,12 @@
       "id": 2
     },
     "diocese": null,
-    "metaData": null
+    "metaData": {
+      "hasAttachment": false,
+      "receiverId": "10",
+      "tenantId": 1,
+      "_class": "de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.meta.CreateMessageMetaData"
+    }
   },
   {
     "id": "615111ef18938889089c77df",
@@ -146,7 +151,12 @@
       "id": 1
     },
     "diocese": null,
-    "metaData": null
+    "metaData": {
+      "hasAttachment": false,
+      "receiverId": "10",
+      "tenantId": 1,
+      "_class": "de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.meta.CreateMessageMetaData"
+    }
   },
   {
     "id": "615111efabc38889089c77df",
@@ -164,7 +174,12 @@
       "id": 1
     },
     "diocese": null,
-    "metaData": null
+    "metaData": {
+      "hasAttachment": false,
+      "receiverId": "10",
+      "tenantId": 1,
+      "_class": "de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.meta.CreateMessageMetaData"
+    }
   },
   {
     "id": "615abcef18938619089c77df",
@@ -182,7 +197,12 @@
       "id": 15
     },
     "diocese": null,
-    "metaData": null
+    "metaData": {
+      "hasAttachment": false,
+      "receiverId": "20",
+      "tenantId": 2,
+      "_class": "de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.meta.CreateMessageMetaData"
+    }
   },
   {
     "id": "615580ef78938611119c77df",
@@ -200,7 +220,12 @@
       "id": 2
     },
     "diocese": null,
-    "metaData": null
+    "metaData": {
+      "hasAttachment": false,
+      "receiverId": "20",
+      "tenantId": 2,
+      "_class": "de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.meta.CreateMessageMetaData"
+    }
   },
   {
     "id": "615580ef7893ab11119c77df",
@@ -218,7 +243,12 @@
       "id": 2
     },
     "diocese": null,
-    "metaData": null
+    "metaData": {
+      "hasAttachment": false,
+      "receiverId": "20",
+      "tenantId": 2,
+      "_class": "de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.meta.CreateMessageMetaData"
+    }
   },
   {
     "id": "615580ef78988991119c77df",
@@ -237,6 +267,8 @@
     },
     "diocese": null,
     "metaData": {
+      "tenantId": 1,
+      "adviceSeekerId": "10",
       "videoCallUuid": "xyz",
       "duration": 900,
       "timestampStop": "2021-05-22T09:45:00.00Z",
@@ -260,6 +292,8 @@
     },
     "diocese": null,
     "metaData": {
+      "tenantId": 1,
+      "adviceSeekerId": "10",
       "videoCallUuid": "123tzz",
       "duration": 900,
       "timestampStop": "2021-05-25T15:15:00.00Z",
@@ -283,6 +317,8 @@
     },
     "diocese": null,
     "metaData": {
+      "tenantId": 2,
+      "adviceSeekerId": "20",
       "videoCallUuid": "dfsfsf",
       "duration": 900,
       "timestampStop": "2021-05-26T15:16:00.00Z",
@@ -324,6 +360,8 @@
     },
     "diocese": null,
     "metaData": {
+      "tenantId": 2,
+      "adviceSeekerId": "20",
       "videoCallUuid": "aaa",
       "duration": 1800,
       "timestampStop": "2021-06-10T15:30:00.00Z",
@@ -392,7 +430,9 @@
       "endTime": "2021-05-27T11:00:00.000Z",
       "uid": "mG6irpGfL7cNghqqAuypCz",
       "bookingId": 1175,
-      "currentBookingId": 1176
+      "currentBookingId": 1176,
+      "tenantId": 1,
+      "adviceSeekerId": "10"
     }
   },
   {
@@ -428,7 +468,9 @@
       "endTime": "2021-05-27T11:00:00.000Z",
       "uid": "mG6irpGfL7cNghqqAuypC1",
       "bookingId": 1179,
-      "currentBookingId": 1180
+      "currentBookingId": 1180,
+      "tenantId": 1,
+      "adviceSeekerId": "10"
     }
   },
   {
@@ -479,7 +521,30 @@
       "endTime": "2021-06-27T11:00:00.000Z",
       "uid": "mG6irpGfL7cNghqqAuypC2",
       "bookingId": 1181,
-      "currentBookingId": 1182
+      "currentBookingId": 1182,
+      "tenantId": 2,
+      "adviceSeekerId": "20"
+    }
+  },
+  {
+    "id": "632addd8d6c5e6226df2bc33",
+    "eventType": "BOOKING_CREATED",
+    "sessionId": 633,
+    "timestamp": "2021-06-10T15:00:00.000Z",
+    "user": {
+      "id": "d63f4cc0-215d-40e2-a866-2d3e910f0590",
+      "userRole": "CONSULTANT"
+    },
+    "metaData": {
+      "type": "Beratung mit Test Consultant",
+      "title": "Beratung Asker mit Test Consultant",
+      "startTime": "2021-06-27T10:00:00.000Z",
+      "endTime": "2021-06-27T11:00:00.000Z",
+      "uid": "mG6irpGfL7cNghqqAuypC2",
+      "bookingId": 1181,
+      "currentBookingId": 1182,
+      "tenantId": 2,
+      "adviceSeekerId": "20"
     }
   },
   {
@@ -560,6 +625,66 @@
     "metaData": {
       "tenantId": 2,
       "endDate": "2022-10-19T10:00:00.00Z"
+    }
+  },
+  {
+    "id": "634cfed4efe56e57e5bc476c",
+    "eventType": "ARCHIVE_SESSION",
+    "sessionId": 634,
+    "timestamp": "2022-10-20T10:00:00.00Z",
+    "consultingType": {
+      "id": 6
+    },
+    "user": {
+      "id": "d63f4cc0-215d-40e2-a866-2d3e910f0590",
+      "userRole": "CONSULTANT"
+    },
+    "agency": {
+      "id": 2
+    },
+    "diocese": null,
+    "metaData": {
+      "tenantId": 2,
+      "endDate": "2022-10-20T10:00:00.00Z"
+    }
+  },
+  {
+    "id": "68e36b44f7c4b955a5dc19fe",
+    "eventType": "DELETE_ACCOUNT",
+    "timestamp": "2025-10-06T07:09:56.599Z",
+    "user": {
+      "id": "10",
+      "userRole": "ASKER"
+    },
+    "metaData": {
+      "deleteDate": "2025-10-10T07:09:56Z",
+      "tenantId": 1
+    }
+  },
+  {
+    "id": "68e36b44f7c4b955a5dc19ff",
+    "eventType": "DELETE_ACCOUNT",
+    "timestamp": "2025-11-06T07:09:56.599Z",
+    "user": {
+      "id": "11",
+      "userRole": "ASKER"
+    },
+    "metaData": {
+      "deleteDate": "2025-10-11T07:09:56Z",
+      "tenantId": 1
+    }
+  },
+  {
+    "id": "68e36b44f7c4b955a5dc19fg",
+    "eventType": "DELETE_ACCOUNT",
+    "timestamp": "2025-10-20T07:09:56.599Z",
+    "user": {
+      "id": "20",
+      "userRole": "ASKER"
+    },
+    "metaData": {
+      "deleteDate": "2025-10-06T07:09:56Z",
+      "tenantId": 2
     }
   }
 ]

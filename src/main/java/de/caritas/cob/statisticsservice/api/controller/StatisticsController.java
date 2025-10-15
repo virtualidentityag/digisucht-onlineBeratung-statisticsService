@@ -15,7 +15,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Controller for statistics API requests */
 @RestController
 @Api(tags = "statistics-controller")
 @RequiredArgsConstructor
@@ -25,7 +24,8 @@ public class StatisticsController implements StatisticsApi {
 
   private final @NonNull RegistrationStatisticsService registrationStatisticsService;
 
-  private final @NonNull StatisticsFeatureAuthorisationService statisticsFeatureAuthorisationService;
+  private final @NonNull StatisticsFeatureAuthorisationService
+      statisticsFeatureAuthorisationService;
 
   /**
    * Returns statistical data for a consultant.
@@ -39,15 +39,18 @@ public class StatisticsController implements StatisticsApi {
       @RequestParam LocalDate startDate, @RequestParam LocalDate endDate) {
     statisticsFeatureAuthorisationService.assertStatisticsFeatureIsEnabled();
     return new ResponseEntity<>(
-        statisticsService.fetchStatisticsData(startDate, endDate),
-        HttpStatus.OK);
+        statisticsService.fetchStatisticsData(startDate, endDate), HttpStatus.OK);
   }
 
+  /**
+   * Returns registration statistics and enriches them with additional data, e.g., message count.
+   *
+   * @return a {@link RegistrationStatisticsListResponseDTO} instance with the statistical data.
+   */
   @Override
   public ResponseEntity<RegistrationStatisticsListResponseDTO> getRegistrationStatistics() {
     statisticsFeatureAuthorisationService.assertStatisticsFeatureIsEnabled();
     return new ResponseEntity<>(
-        registrationStatisticsService.fetchRegistrationStatisticsData(),
-        HttpStatus.OK);
+        registrationStatisticsService.fetchRegistrationStatisticsData(), HttpStatus.OK);
   }
 }
