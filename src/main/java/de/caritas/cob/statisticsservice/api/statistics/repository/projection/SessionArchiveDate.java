@@ -1,9 +1,9 @@
 package de.caritas.cob.statisticsservice.api.statistics.repository.projection;
 
-import lombok.Data;
+import lombok.Value;
 
-@Data
+@Value
 public class SessionArchiveDate {
-  private Long id;
-  private String endDate;
+  Long id;
+  String endDate;
 }

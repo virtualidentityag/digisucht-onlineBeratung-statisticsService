@@ -1,9 +1,9 @@
 package de.caritas.cob.statisticsservice.api.statistics.repository.projection;
 
-import lombok.Data;
+import lombok.Value;
 
-@Data
+@Value
 public class UserDeleteDate {
-  private String id;
-  private String deleteDate;
+  String id;
+  String deleteDate;
 }

@@ -1,12 +1,10 @@
 package de.caritas.cob.statisticsservice.api.statistics.repository.projection;
 
 import java.time.Instant;
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Value;
 
-@Data
-@AllArgsConstructor
+@Value
 public class UserEventStats {
-  private Integer count;
-  private Instant lastInteraction;
+  Integer count;
+  Instant lastInteraction;
 }
