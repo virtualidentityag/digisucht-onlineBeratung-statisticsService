@@ -1,31 +1,41 @@
 package de.caritas.cob.statisticsservice.api.helper;
 
-import static java.util.Comparator.comparing;
 import static java.util.Objects.nonNull;
 
 import de.caritas.cob.statisticsservice.api.model.RegistrationStatisticsResponseDTO;
-import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.StatisticEventsContainer;
 import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.StatisticsEvent;
-import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.meta.AdviceSeekerAwareMetaData;
-import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.meta.ArchiveMetaData;
-import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.meta.CreateMessageMetaData;
-import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.meta.DeleteAccountMetaData;
 import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.meta.RegistrationMetaData;
-import java.util.Collection;
+import de.caritas.cob.statisticsservice.api.statistics.repository.projection.UserEventStats;
+import de.caritas.cob.statisticsservice.api.statistics.service.dto.StatisticContainer;
+import java.time.Instant;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Stream;
 import org.springframework.stereotype.Component;
 
 @Component
 public class RegistrationStatisticsDTOConverter {
 
   public RegistrationStatisticsResponseDTO convertStatisticsEvent(
-      StatisticsEvent rawEvent, StatisticEventsContainer statisticEventsContainer) {
+      StatisticsEvent rawEvent, StatisticContainer statisticContainer) {
     RegistrationMetaData metadata = (RegistrationMetaData) rawEvent.getMetaData();
-    String maxArchiveDate = findMaxArchiveDate(rawEvent.getSessionId(), statisticEventsContainer.getArchiveSessionEvents());
-    String deleteAccountDate = findDeleteAccountDate(rawEvent.getUser().getId(), statisticEventsContainer.getDeleteAccountEvents());
+    String userId = rawEvent.getUser().getId();
+    Long sessionId = rawEvent.getSessionId();
+    String maxArchiveDate = statisticContainer.getArchiveDateBySession().get(sessionId);
+    String deleteAccountDate = statisticContainer.getDeleteDateByUser().get(userId);
+    Instant lastActivityDate =
+        getLastActivityDateForUser(
+            userId,
+            statisticContainer.getMessageStatsByUser(),
+            statisticContainer.getBookingStatsByUser(),
+            statisticContainer.getVideoCallStatsByUser());
+    Integer videoCallCount = getCountForUser(userId, statisticContainer.getVideoCallStatsByUser());
+    Integer bookingCount = getCountForUser(userId, statisticContainer.getBookingStatsByUser());
+    Integer messageCount = getCountForUser(userId, statisticContainer.getMessageStatsByUser());
 
     return new RegistrationStatisticsResponseDTO()
-        .userId(rawEvent.getUser().getId())
+        .userId(userId)
         .registrationDate(metadata.getRegistrationDate())
         .age(metadata.getAge())
         .tenantName(metadata.getTenantName())
@@ -34,74 +44,44 @@ public class RegistrationStatisticsDTOConverter {
         .counsellingRelation(metadata.getCounsellingRelation())
         .mainTopicInternalAttribute(metadata.getMainTopicInternalAttribute())
         .topicsInternalAttributes(metadata.getTopicsInternalAttributes())
-        .endDate(getEndDate(maxArchiveDate, deleteAccountDate))
+        .endDate(getEndDate(deleteAccountDate, maxArchiveDate))
         .postalCode(metadata.getPostalCode())
         .referer(metadata.getReferer())
-        .attendedVideoCallsCount(
-            countEventsPerAdviceSeekerMatchingOnMetadata(rawEvent.getUser().getId(), statisticEventsContainer.getVideoCallStartedEvents()))
-        .appointmentsBookedCount(countEventsPerAdviceSeekerMatchingOnMetadata(rawEvent.getUser().getId(), statisticEventsContainer.getBookingCreatedEvents()))
-        .consultantMessagesCount(countEventsPerAdviceSeekerMatchingOnMetadataByReceiverId(rawEvent.getUser().getId(), statisticEventsContainer.getConsultantMessageCreatedEvents()));
+        .attendedVideoCallsCount(videoCallCount)
+        .appointmentsBookedCount(bookingCount)
+        .consultantMessagesCount(messageCount)
+        .lastActivityDate(nonNull(lastActivityDate) ? lastActivityDate.toString() : null);
   }
 
-  private Integer countEventsPerAdviceSeekerMatchingOnMetadata(String adviceSeekerId,
-      Collection<StatisticsEvent> events) {
-
-    return events != null
-        ? (int) getCountOfEventsPerAdviceSeekerMatchingOnMetadata(adviceSeekerId, events) : 0;
+  private String getEndDate(String deleteAccountDate, String maxArchiveDate) {
+    return nonNull(deleteAccountDate) ? deleteAccountDate : maxArchiveDate;
   }
 
-  private Integer countEventsPerAdviceSeekerMatchingOnMetadataByReceiverId(String adviceSeekerId,
-      Collection<StatisticsEvent> events) {
-
-    return events != null
-        ? (int) getCountOfEventsPerAdviceSeekerMatchingOnMetadataByReceiverId(adviceSeekerId, events) : 0;
+  private Integer getCountForUser(String userId, Map<String, UserEventStats> userEventStats) {
+    return Optional.ofNullable(userEventStats)
+        .map(map -> map.get(userId))
+        .map(UserEventStats::getCount)
+        .orElse(null);
   }
 
-  private long getCountOfEventsPerAdviceSeekerMatchingOnMetadata(String adviceSeekerId,
-      Collection<StatisticsEvent> statisticsEvents) {
-    return statisticsEvents.stream()
-        .filter(event -> {
-          AdviceSeekerAwareMetaData metaData = (AdviceSeekerAwareMetaData) event.getMetaData();
-          return metaData.getAdviceSeekerId() != null && metaData.getAdviceSeekerId()
-              .equals(adviceSeekerId);
-        })
-        .count();
+  private Instant getLastActivityDateForUser(
+      String userId,
+      Map<String, UserEventStats> messageStats,
+      Map<String, UserEventStats> bookingStats,
+      Map<String, UserEventStats> videoCallStats) {
+    return Stream.of(
+            getLastInteraction(messageStats, userId),
+            getLastInteraction(bookingStats, userId),
+            getLastInteraction(videoCallStats, userId))
+        .filter(Objects::nonNull)
+        .max(Instant::compareTo)
+        .orElse(null);
   }
 
-  private long getCountOfEventsPerAdviceSeekerMatchingOnMetadataByReceiverId(String adviceSeekerId,
-      Collection<StatisticsEvent> createMessageEvents) {
-    return createMessageEvents.stream()
-        .filter(event -> {
-          CreateMessageMetaData metaData = (CreateMessageMetaData) event.getMetaData();
-          return metaData.getReceiverId() != null && metaData.getReceiverId()
-              .equals(adviceSeekerId);
-        })
-        .count();
-  }
-
-  private String getEndDate(String maxArchiveDate, String deleteAccountDate) {
-    return deleteAccountDate != null ? deleteAccountDate : maxArchiveDate;
-  }
-
-  private String findDeleteAccountDate(String userId, Collection<StatisticsEvent> deleteAccountEvents) {
-    return deleteAccountEvents != null ? deleteAccountEvents.stream()
-        .filter(event -> event.getUser() != null && event.getUser().getId().equals(userId))
-        .map(event -> ((DeleteAccountMetaData) event.getMetaData()).getDeleteDate())
-        .findFirst().orElse(null) : null;
-  }
-
-  private String findMaxArchiveDate(Long sessionId, Collection<StatisticsEvent> archiveSessionEvents) {
-    var maxArchiveEvent = findMaxArchiveSessionEvent(sessionId, archiveSessionEvents);
-    if (maxArchiveEvent.isPresent()) {
-      ArchiveMetaData metaData = (ArchiveMetaData) maxArchiveEvent.get().getMetaData();
-      return metaData.getEndDate();
-    }
-    return null;
-  }
-
-  private Optional<StatisticsEvent> findMaxArchiveSessionEvent(Long sessionId, Collection<StatisticsEvent> archiveSessionEvents) {
-    return nonNull(archiveSessionEvents) ? archiveSessionEvents.stream()
-        .filter(event -> event.getSessionId() != null && event.getSessionId().equals(sessionId))
-        .max(comparing(StatisticsEvent::getTimestamp)) : Optional.empty();
+  private Instant getLastInteraction(Map<String, UserEventStats> userEventStats, String userId) {
+    return Optional.ofNullable(userEventStats)
+        .map(map -> map.get(userId))
+        .map(UserEventStats::getLastInteraction)
+        .orElse(null);
   }
 }

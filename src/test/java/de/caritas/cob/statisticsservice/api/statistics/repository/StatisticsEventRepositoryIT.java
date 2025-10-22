@@ -3,10 +3,7 @@ package de.caritas.cob.statisticsservice.api.statistics.repository;
 import static de.caritas.cob.statisticsservice.api.testhelper.TestConstants.CONSULTANT_ID;
 import static de.caritas.cob.statisticsservice.api.testhelper.TestConstants.DATE_FROM;
 import static de.caritas.cob.statisticsservice.api.testhelper.TestConstants.DATE_TO;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.nullValue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,6 +11,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.caritas.cob.statisticsservice.StatisticsServiceApplication;
 import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.StatisticsEvent;
 import de.caritas.cob.statisticsservice.api.statistics.repository.StatisticsEventRepository.Count;
+import de.caritas.cob.statisticsservice.api.statistics.repository.projection.UserEventStats;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -21,6 +19,7 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import org.bson.Document;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -42,15 +41,15 @@ public class StatisticsEventRepositoryIT {
 
   public static final String MONGODB_STATISTICS_EVENTS_JSON_FILENAME =
       "mongodb/StatisticsEvents.json";
+  private static final String MONGO_COLLECTION_NAME = "statistics_event";
+
   private final Instant dateFromConverted =
       OffsetDateTime.of(DATE_FROM, LocalTime.MIN, ZoneOffset.UTC).toInstant();
   private final Instant dateToConverted =
       OffsetDateTime.of(DATE_TO, LocalTime.MAX, ZoneOffset.UTC).toInstant();
-  private final String MONGO_COLLECTION_NAME = "statistics_event";
-  @Autowired
-  StatisticsEventRepository statisticsEventRepository;
-  @Autowired
-  MongoTemplate mongoTemplate;
+
+  @Autowired StatisticsEventRepository statisticsEventRepository;
+  @Autowired MongoTemplate mongoTemplate;
 
   @Before
   public void preFillMongoDb() throws IOException {
@@ -60,58 +59,67 @@ public class StatisticsEventRepositoryIT {
     List<StatisticsEvent> statisticEvents =
         objectMapper.readValue(
             new ClassPathResource(MONGODB_STATISTICS_EVENTS_JSON_FILENAME).getFile(),
-            new TypeReference<>() {
-            });
+            new TypeReference<>() {});
     mongoTemplate.insert(statisticEvents, MONGO_COLLECTION_NAME);
-    mongoTemplate.getDb().getCollection(MONGO_COLLECTION_NAME).aggregate(
-        List.of(new Document("$addFields",
-            new Document("metaData.endTime",
-                new Document("$toDate", "$metaData.endTime"))
-                .append("metaData.startTime",
-                    new Document("$toDate", "$metaData.startTime")))));
+    mongoTemplate
+        .getDb()
+        .getCollection(MONGO_COLLECTION_NAME)
+        .aggregate(
+            List.of(
+                new Document(
+                    "$addFields",
+                    new Document("metaData.endTime", new Document("$toDate", "$metaData.endTime"))
+                        .append(
+                            "metaData.startTime",
+                            new Document("$toDate", "$metaData.startTime")))));
   }
 
   @Test
   public void calculateNumberOfAssignedSessionsForUser_Should_ReturnCorrectNumberOfSessions() {
     assertThat(
-        statisticsEventRepository.calculateNumberOfAssignedSessionsForUser(
-            CONSULTANT_ID, dateFromConverted, dateToConverted),
-        is(3L));
+            statisticsEventRepository.calculateNumberOfAssignedSessionsForUser(
+                CONSULTANT_ID, dateFromConverted, dateToConverted))
+        .isEqualTo(3L);
   }
 
   @Test
-  public void calculateNumbersOfSessionsWhereUserWasActive_Should_ReturnNull_WHEN_queryDoesNotMatchAnyResult() {
+  public void
+      calculateNumbersOfSessionsWhereUserWasActive_Should_ReturnNull_WHEN_queryDoesNotMatchAnyResult() {
     var currentDateTime =
         OffsetDateTime.of(LocalDateTime.ofEpochSecond(0L, 0, ZoneOffset.UTC), ZoneOffset.UTC)
             .toInstant();
 
     assertThat(
-        statisticsEventRepository.calculateNumbersOfSessionsWhereUserWasActive(
-            CONSULTANT_ID, currentDateTime, currentDateTime), nullValue());
+            statisticsEventRepository.calculateNumbersOfSessionsWhereUserWasActive(
+                CONSULTANT_ID, currentDateTime, currentDateTime))
+        .isNull();
   }
 
   @Test
   public void calculateNumbersOfSessionsWhereUserWasActive_Should_ReturnCorrectNumberOfSessions() {
     assertThat(
-        statisticsEventRepository.calculateNumbersOfSessionsWhereUserWasActive(
-            CONSULTANT_ID, dateFromConverted, dateToConverted).getTotalCount(),
-        is(5L));
+            statisticsEventRepository
+                .calculateNumbersOfSessionsWhereUserWasActive(
+                    CONSULTANT_ID, dateFromConverted, dateToConverted)
+                .getTotalCount())
+        .isEqualTo(5L);
   }
 
   @Test
   public void calculateNumberOfSentMessagesForUser_Should_ReturnCorrectNumberOfMessages() {
     assertThat(
-        statisticsEventRepository.calculateNumberOfSentMessagesForUser(
-            CONSULTANT_ID, dateFromConverted, dateToConverted),
-        is(4L));
+            statisticsEventRepository.calculateNumberOfSentMessagesForUser(
+                CONSULTANT_ID, dateFromConverted, dateToConverted))
+        .isEqualTo(4L);
   }
 
   @Test
   public void calculateTimeInVideoCallsForUser_Should_ReturnCorrectTime() {
     assertThat(
-        statisticsEventRepository.calculateTimeInVideoCallsForUser(
-            CONSULTANT_ID, dateFromConverted, dateToConverted).getTotal(),
-        is(1800L));
+            statisticsEventRepository
+                .calculateTimeInVideoCallsForUser(CONSULTANT_ID, dateFromConverted, dateToConverted)
+                .getTotal())
+        .isEqualTo(1800L);
   }
 
   @Test
@@ -121,29 +129,101 @@ public class StatisticsEventRepositoryIT {
             .toInstant();
 
     assertThat(
-        statisticsEventRepository.calculateTimeInVideoCallsForUser(
-            CONSULTANT_ID, currentDateTime, currentDateTime), nullValue());
+            statisticsEventRepository.calculateTimeInVideoCallsForUser(
+                CONSULTANT_ID, currentDateTime, currentDateTime))
+        .isNull();
   }
 
   @Test
   public void getAllRegistrationStatistics_Should_ReturnRegistrationStatistics() {
-
-    List<StatisticsEvent> allRegistrationStatistics = statisticsEventRepository.getAllRegistrationStatistics();
-    assertThat(allRegistrationStatistics, hasSize(2));
+    List<StatisticsEvent> allRegistrationStatistics =
+        statisticsEventRepository.getAllRegistrationStatistics();
+    assertThat(allRegistrationStatistics).hasSize(2);
   }
 
   @Test
-  public void getAllArchiveSessionEvents_Should_ReturnArchiveSessionEvents() {
-    List<StatisticsEvent> allArchiveSessionEvents = statisticsEventRepository.getAllArchiveSessionEvents();
-    assertThat(allArchiveSessionEvents, hasSize(3));
+  public void getMessageStatsByUser_Should_ReturnStatsGroupedByUser() {
+    Map<String, UserEventStats> messageStatsByUser =
+        statisticsEventRepository.getMessageStatsByUser();
+
+    assertThat(messageStatsByUser)
+        .hasSize(2)
+        .satisfies(
+            map -> {
+              assertThat(map.get("10").getCount()).isEqualTo(3);
+              assertThat(map.get("10").getLastInteraction()).isEqualTo("2021-05-08T10:30:20.294Z");
+
+              assertThat(map.get("20").getCount()).isEqualTo(3);
+              assertThat(map.get("20").getLastInteraction()).isEqualTo("2021-05-21T09:17:21.00Z");
+            });
   }
 
   @Test
-  @Ignore("For some reason this test is failing in this test scenario caused by the event.0.startTime and event.0.endTime filters.")
-  public void calculateNumberOfDoneAppointmentsForConsultant_Should_ReturnCorrectNumberOfAppointments() {
-    Count count = statisticsEventRepository.calculateNumbersOfDoneAppointments(CONSULTANT_ID,
-        dateFromConverted, dateToConverted, dateToConverted);
+  public void getVideoCallStatsByUser_Should_ReturnStatsGroupedByUser() {
+    Map<String, UserEventStats> videoCallStatsByUser =
+        statisticsEventRepository.getVideoCallStatsByUser();
 
-    assertThat(count.getTotalCount(), is(1L));
+    assertThat(videoCallStatsByUser)
+        .hasSize(2)
+        .satisfies(
+            map -> {
+              assertThat(map.get("10").getCount()).isEqualTo(2);
+              assertThat(map.get("10").getLastInteraction()).isEqualTo("2021-05-25T15:00:00.00Z");
+
+              assertThat(map.get("20").getCount()).isEqualTo(2);
+              assertThat(map.get("20").getLastInteraction()).isEqualTo("2021-06-10T15:00:00.00Z");
+            });
+  }
+
+  @Test
+  public void getBookingStatsByUser_Should_ReturnStatsGroupedByUser() {
+    Map<String, UserEventStats> bookingStatsByUser =
+        statisticsEventRepository.getBookingStatsByUser();
+
+    assertThat(bookingStatsByUser)
+        .hasSize(2)
+        .satisfies(
+            map -> {
+              assertThat(map.get("10").getCount()).isEqualTo(2);
+              assertThat(map.get("10").getLastInteraction()).isEqualTo("2021-05-10T15:00:00.000Z");
+
+              assertThat(map.get("20").getCount()).isEqualTo(2);
+              assertThat(map.get("20").getLastInteraction()).isEqualTo("2021-06-10T15:00:00.000Z");
+            });
+  }
+
+  @Test
+  public void getDeleteDateByUser_Should_ReturnDeleteDateByUser() {
+    Map<String, String> deleteDateByUser = statisticsEventRepository.getDeleteDateByUser();
+
+    assertThat(deleteDateByUser)
+        .hasSize(3)
+        .containsEntry("10", "2025-10-10T07:09:56Z")
+        .containsEntry("11", "2025-10-11T07:09:56Z")
+        .containsEntry("20", "2025-10-06T07:09:56Z");
+  }
+
+  @Test
+  public void
+      getLatestArchiveSessionEventForSession_Should_ReturnLatestArchiveSessionEventForUser() {
+    Map<Long, String> result = statisticsEventRepository.getLatestArchiveDateBySession();
+
+    assertThat(result)
+        .hasSize(2)
+        // the latest of the existing events
+        .containsEntry(633L, "2022-10-18T10:00:00.00Z")
+        .containsEntry(634L, "2022-10-20T10:00:00.00Z");
+  }
+
+  @Test
+  @Ignore(
+      "For some reason this test is failing in this test scenario caused by the event.0.startTime and event.0.endTime filters.")
+  public void
+      calculateNumberOfDoneAppointmentsForConsultant_Should_ReturnCorrectNumberOfAppointments() {
+    Count count =
+        statisticsEventRepository.calculateNumbersOfDoneAppointments(
+            CONSULTANT_ID, dateFromConverted, dateToConverted, dateToConverted);
+
+    assertThat(count.getTotalCount()).isEqualTo(1L);
   }
 }
