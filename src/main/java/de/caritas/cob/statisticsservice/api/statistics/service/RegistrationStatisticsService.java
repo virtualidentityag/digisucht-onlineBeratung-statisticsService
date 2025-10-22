@@ -1,15 +1,15 @@
 package de.caritas.cob.statisticsservice.api.statistics.service;
 
 import de.caritas.cob.statisticsservice.api.helper.RegistrationStatisticsDTOConverter;
-import de.caritas.cob.statisticsservice.api.model.EventType;
 import de.caritas.cob.statisticsservice.api.model.RegistrationStatisticsListResponseDTO;
-import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.StatisticEventsContainer;
 import de.caritas.cob.statisticsservice.api.statistics.model.statisticsevent.StatisticsEvent;
 import de.caritas.cob.statisticsservice.api.statistics.repository.StatisticsEventRepository;
 import de.caritas.cob.statisticsservice.api.statistics.repository.StatisticsEventTenantAwareRepository;
+import de.caritas.cob.statisticsservice.api.statistics.repository.projection.UserEventStats;
+import de.caritas.cob.statisticsservice.api.statistics.service.dto.StatisticContainer;
 import de.caritas.cob.statisticsservice.api.tenant.TenantContext;
-import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +21,6 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class RegistrationStatisticsService {
 
-
   @Value("${multitenancy.enabled}")
   private Boolean multitenancyEnabled;
 
@@ -31,143 +30,85 @@ public class RegistrationStatisticsService {
 
   private final @NonNull StatisticsEventTenantAwareRepository statisticsEventTenantAwareRepository;
 
-  private final @NonNull RegistrationStatisticsDTOConverter registrationStatisticsDTOConverter;
+  private final @NonNull RegistrationStatisticsDTOConverter converter;
 
   public RegistrationStatisticsListResponseDTO fetchRegistrationStatisticsData() {
-    return buildResponseDTO();
+    StatisticContainer statisticContainer =
+        StatisticContainer.builder()
+            .archiveDateBySession(getArchiveDateByUser())
+            .deleteDateByUser(getDeleteDateByUser())
+            .messageStatsByUser(getMessageStatsByUser())
+            .videoCallStatsByUser(getVideoCallStatsByUser())
+            .bookingStatsByUser(getBookingStatsByUser())
+            .build();
+
+    return buildResponseDTO(statisticContainer);
   }
 
-  private RegistrationStatisticsListResponseDTO buildResponseDTO() {
-    StatisticEventsContainer statisticEventsContainer = new StatisticEventsContainer(
-        getArchiveSessionEvents(), getDeleteAccountEvents(), getVideoCallStartedEvents(),
-        getAllBookingCreatedEvents(), getAllMessageCreatedEvents());
+  private RegistrationStatisticsListResponseDTO buildResponseDTO(
+      StatisticContainer statisticContainer) {
 
-    RegistrationStatisticsListResponseDTO registrationStatisticsList = new RegistrationStatisticsListResponseDTO();
-    getRegistrationStatistics()
-        .stream()
-        .map(rawEvent -> registrationStatisticsDTOConverter.convertStatisticsEvent(rawEvent,
-            statisticEventsContainer))
+    RegistrationStatisticsListResponseDTO registrationStatisticsList =
+        new RegistrationStatisticsListResponseDTO();
+    getRegistrationStatistics().stream()
+        .map(event -> converter.convertStatisticsEvent(event, statisticContainer))
         .forEach(registrationStatisticsList::addRegistrationStatisticsItem);
 
     return registrationStatisticsList;
   }
 
-  private Collection<StatisticsEvent> getAllMessageCreatedEvents() {
+  private Map<Long, String> getArchiveDateByUser() {
     if (isAllTenantAccessContext()) {
-      return getMessageCreatedEventsForAllTenants();
+      return statisticsEventRepository.getLatestArchiveDateBySession();
     } else {
-      return getMessageCreatedEventsForCurrentTenant();
+      return statisticsEventTenantAwareRepository.getLatestArchiveDateBySession(
+          TenantContext.getCurrentTenant());
     }
   }
 
-  private Collection<StatisticsEvent> getAllBookingCreatedEvents() {
+  private Map<String, String> getDeleteDateByUser() {
     if (isAllTenantAccessContext()) {
-      return getBookingCreatedEventsForAllTenants();
+      return statisticsEventRepository.getDeleteDateByUser();
     } else {
-      return getBookingCreatedEventsForCurrentTenant();
+      return statisticsEventTenantAwareRepository.getDeleteDateByUser(
+          TenantContext.getCurrentTenant());
     }
   }
 
-  private List<StatisticsEvent> getVideoCallStartedEvents() {
+  private Map<String, UserEventStats> getMessageStatsByUser() {
     if (isAllTenantAccessContext()) {
-      return getVideoCallStartedEventsAllTenants();
+      return statisticsEventRepository.getMessageStatsByUser();
     } else {
-      return getVideoCallStartedEventsForCurrentTenant();
+      return statisticsEventTenantAwareRepository.getMessageStatsByUser(
+          TenantContext.getCurrentTenant());
     }
   }
 
-  private List<StatisticsEvent> getVideoCallStartedEventsForCurrentTenant() {
-    log.info("Gathering video call  started events for all tenants");
-    return statisticsEventTenantAwareRepository.getAllStartVideoCallSessionEvents(
-        TenantContext.getCurrentTenant());
+  private Map<String, UserEventStats> getBookingStatsByUser() {
+    if (isAllTenantAccessContext()) {
+      return statisticsEventRepository.getBookingStatsByUser();
+    } else {
+      return statisticsEventTenantAwareRepository.getBookingStatsByUser(
+          TenantContext.getCurrentTenant());
+    }
   }
 
-  private List<StatisticsEvent> getVideoCallStartedEventsAllTenants() {
-    log.info("Gathering video call  started events for all tenants");
-    return statisticsEventRepository.getAllStartVideoCallSessionEvents();
-
+  private Map<String, UserEventStats> getVideoCallStatsByUser() {
+    if (isAllTenantAccessContext()) {
+      return statisticsEventRepository.getVideoCallStatsByUser();
+    } else {
+      return statisticsEventTenantAwareRepository.getVideoCallStatsByUser(
+          TenantContext.getCurrentTenant());
+    }
   }
 
   private List<StatisticsEvent> getRegistrationStatistics() {
     if (isAllTenantAccessContext()) {
-      return getRegistrationStatisticsForAllTenants();
+      return statisticsEventRepository.getAllRegistrationStatistics();
     } else {
-      return getRegistrationStatisticsForCurrentTenant();
+      return statisticsEventTenantAwareRepository.getAllRegistrationStatistics(
+          TenantContext.getCurrentTenant());
     }
-  }
-
-  private List<StatisticsEvent> getArchiveSessionEvents() {
-    if (isAllTenantAccessContext()) {
-      return getArchiveSessionEventsForAllTenants();
-    } else {
-      return getArchiveSessionEventsForCurrentTenant();
-    }
-  }
-
-  private List<StatisticsEvent> getDeleteAccountEvents() {
-    if (isAllTenantAccessContext()) {
-      return getDeleteAccountEventsForAllTenants();
-    } else {
-      return getDeleteAccountEventsForCurrentTenant();
-    }
-  }
-
-  private List<StatisticsEvent> getDeleteAccountEventsForAllTenants() {
-    log.info("Gathering delete account events for all tenants");
-    return statisticsEventRepository.getAllDeleteAccountSessionEvents();
-  }
-
-  private List<StatisticsEvent> getDeleteAccountEventsForCurrentTenant() {
-    log.info("Gathering delete account events for current tenant");
-    return statisticsEventTenantAwareRepository.getAllDeleteAccountSessionEvents(
-        TenantContext.getCurrentTenant());
-  }
-
-  private List<StatisticsEvent> getRegistrationStatisticsForCurrentTenant() {
-    log.info("Gathering registration statistics for tenant with id {}",
-        TenantContext.getCurrentTenant());
-    return statisticsEventTenantAwareRepository.getAllRegistrationStatistics(
-        TenantContext.getCurrentTenant());
-  }
-
-  private List<StatisticsEvent> getRegistrationStatisticsForAllTenants() {
-    log.info("Gathering registration statistics for all tenants");
-    return statisticsEventRepository.getAllRegistrationStatistics();
-  }
-
-  private List<StatisticsEvent> getArchiveSessionEventsForAllTenants() {
-    log.info("Gathering archive sessions events for all tenants");
-    return statisticsEventRepository.getAllArchiveSessionEvents();
-  }
-
-  private List<StatisticsEvent> getMessageCreatedEventsForAllTenants() {
-    log.info("Gathering message created events for all tenants");
-    return statisticsEventRepository.getConsultantMessageCreatedEvents();
-  }
-
-  private List<StatisticsEvent> getBookingCreatedEventsForAllTenants() {
-    log.info("Gathering booked appointments events for all tenants");
-    return statisticsEventRepository.getAllBookingCreatedEvents();
-  }
-
-  private List<StatisticsEvent> getMessageCreatedEventsForCurrentTenant() {
-    log.info("Gathering message created events for tenant with id {}",
-        TenantContext.getCurrentTenant());
-    return statisticsEventTenantAwareRepository.getConsultantMessageCreatedEvents(TenantContext.getCurrentTenant());
-  }
-
-  private List<StatisticsEvent> getBookingCreatedEventsForCurrentTenant() {
-    log.info("Gathering booked appointments events for tenant with id {}",
-        TenantContext.getCurrentTenant());
-    return statisticsEventTenantAwareRepository.getAllBookingCreatedEvents(
-        TenantContext.getCurrentTenant());
-  }
-
-  private List<StatisticsEvent> getArchiveSessionEventsForCurrentTenant() {
-    log.info("Gathering archive session events for tenant with id {}",
-        TenantContext.getCurrentTenant());
-    return statisticsEventTenantAwareRepository.getAllArchiveSessionEvents(
-        TenantContext.getCurrentTenant());
   }
 
   private boolean isAllTenantAccessContext() {
@@ -178,4 +119,3 @@ public class RegistrationStatisticsService {
     return !multitenancyEnabled;
   }
 }
-
